@@ -7,36 +7,38 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-<div class="app">
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div class="app" role="application" aria-label="AI Nurse Healthcare Application">
     <!-- Alerts -->
-    <div id="alerts" style="position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:200;width:90%;max-width:440px"></div>
+    <div id="alerts" role="alert" aria-live="polite" style="position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:200;width:90%;max-width:440px"></div>
 
     <!-- Header -->
-    <header class="header hidden" id="app-header">
+    <header class="header hidden" id="app-header" role="banner">
         <h1>AI Nurse</h1>
         <div class="header-actions">
-            <span class="user-badge"><span id="user-name"></span> (<span id="user-role"></span>)</span>
-            <button id="btn-logout">Logout</button>
+            <span class="user-badge" aria-label="Current user"><span id="user-name"></span> (<span id="user-role"></span>)</span>
+            <button id="btn-logout" aria-label="Log out of your account">Logout</button>
         </div>
     </header>
 
     <!-- Nav -->
-    <nav class="nav-tabs hidden" id="app-nav">
-        <button class="nav-tab" data-screen="dashboard">Home</button>
-        <button class="nav-tab" data-screen="symptoms">Symptoms</button>
-        <button class="nav-tab" data-screen="bmi">BMI</button>
-        <button class="nav-tab staff-only" data-screen="triage">Triage</button>
-        <button class="nav-tab staff-only" data-screen="vitals">Vitals</button>
-        <button class="nav-tab staff-only" data-screen="camera">Camera</button>
+    <nav class="nav-tabs hidden" id="app-nav" role="navigation" aria-label="Main navigation">
+        <button class="nav-tab" data-screen="dashboard" aria-label="Dashboard home">Home</button>
+        <button class="nav-tab" data-screen="symptoms" aria-label="Symptom checker">Symptoms</button>
+        <button class="nav-tab" data-screen="bmi" aria-label="BMI calculator">BMI</button>
+        <button class="nav-tab staff-only" data-screen="triage" aria-label="Triage assessment">Triage</button>
+        <button class="nav-tab staff-only" data-screen="vitals" aria-label="Record vitals">Vitals</button>
+        <button class="nav-tab staff-only" data-screen="camera" aria-label="Medical camera">Camera</button>
     </nav>
 
     <!-- Login -->
+    <main id="main-content">
     <div class="screen" id="screen-login">
         <div class="auth-screen">
             <div class="logo">🏥</div>
             <h2>AI Nurse</h2>
             <p>Your digital healthcare assistant</p>
-            <form id="form-login" style="width:100%;max-width:320px">
+            <form id="form-login" style="width:100%;max-width:320px" aria-label="Login form">
                 <div class="form-group">
                     <label for="login-email">Email</label>
                     <input type="email" id="login-email" required placeholder="you@example.com">
@@ -59,7 +61,7 @@
             <div class="logo">🏥</div>
             <h2>Create Account</h2>
             <p>Join AI Nurse today</p>
-            <form id="form-register" style="width:100%;max-width:320px">
+            <form id="form-register" style="width:100%;max-width:320px" aria-label="Registration form">
                 <div class="form-group">
                     <label for="reg-name">Full Name</label>
                     <input type="text" id="reg-name" required placeholder="John Doe">
@@ -91,7 +93,7 @@
     <div class="screen hidden" id="screen-symptoms">
         <div class="content">
             <h3 class="section-title">Symptom Checker</h3>
-            <form id="form-symptoms">
+            <form id="form-symptoms" aria-label="Symptom checker form">
                 <div class="form-group">
                     <label>Select your symptoms</label>
                     <div id="symptom-tags" class="symptom-tags"></div>
@@ -122,7 +124,7 @@
     <div class="screen hidden" id="screen-bmi">
         <div class="content">
             <h3 class="section-title">BMI Calculator</h3>
-            <form id="form-bmi">
+            <form id="form-bmi" aria-label="BMI calculator form">
                 <div class="form-group">
                     <label for="bmi-height">Height (cm)</label>
                     <input type="number" id="bmi-height" required min="1" max="300" step="0.1" placeholder="175">
@@ -141,7 +143,7 @@
     <div class="screen hidden" id="screen-triage">
         <div class="content">
             <h3 class="section-title">Triage Assessment</h3>
-            <form id="form-triage">
+            <form id="form-triage" aria-label="Triage assessment form">
                 <div class="form-group">
                     <label for="tri-patient-id">Patient ID (optional)</label>
                     <input type="text" id="tri-patient-id" placeholder="Leave empty for quick assessment">
@@ -190,7 +192,7 @@
     <div class="screen hidden" id="screen-vitals">
         <div class="content">
             <h3 class="section-title">Record Vitals</h3>
-            <form id="form-vitals">
+            <form id="form-vitals" aria-label="Record vitals form">
                 <div class="form-group">
                     <label for="vitals-patient-id">Patient ID</label>
                     <input type="text" id="vitals-patient-id" required placeholder="Patient UUID">
@@ -237,8 +239,9 @@
             </div>
         </div>
     </div>
-</div>
 
+    </main>
+</div>
 <script src="/static/js/app.js"></script>
 </body>
 </html>

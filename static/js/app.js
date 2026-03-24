@@ -27,6 +27,20 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const show = (el) => el.classList.remove('hidden');
 const hide = (el) => el.classList.add('hidden');
 
+// --- Loading state helpers ---
+function setLoading(btn, loading) {
+    if (loading) {
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = 'Loading...';
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+    } else {
+        btn.textContent = btn.dataset.originalText || btn.textContent;
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+    }
+}
+
 // --- Screen management ---
 function showScreen(name) {
     $$('.screen').forEach(s => hide(s));
@@ -40,6 +54,8 @@ function showScreen(name) {
 // --- Auth ---
 async function handleRegister(e) {
     e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
     try {
         await api('/auth/register', {
             method: 'POST',
@@ -52,12 +68,16 @@ async function handleRegister(e) {
         showAlert('Account created! Please log in.', 'success');
         showScreen('login');
     } catch (err) {
-        showAlert(err.detail, 'danger');
+        showAlert(err.detail || 'Registration failed', 'danger');
+    } finally {
+        setLoading(btn, false);
     }
 }
 
 async function handleLogin(e) {
     e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
     try {
         const data = await api('/auth/login', {
             method: 'POST',
@@ -70,7 +90,9 @@ async function handleLogin(e) {
         localStorage.setItem('user', JSON.stringify(currentUser));
         enterApp();
     } catch (err) {
-        showAlert(err.detail, 'danger');
+        showAlert(err.detail || 'Login failed', 'danger');
+    } finally {
+        setLoading(btn, false);
     }
 }
 
@@ -182,6 +204,8 @@ function isStaff() {
 // --- BMI ---
 async function handleBMI(e) {
     e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
     try {
         const data = await api('/metrics/bmi', {
             method: 'POST',
@@ -209,7 +233,9 @@ async function handleBMI(e) {
         `;
         show(result);
     } catch (err) {
-        showAlert(err.detail, 'danger');
+        showAlert(err.detail || 'BMI calculation failed', 'danger');
+    } finally {
+        setLoading(btn, false);
     }
 }
 
@@ -222,6 +248,14 @@ const COMMON_SYMPTOMS = [
     'light_sensitivity', 'sweating', 'wheezing', 'painful_urination',
     'frequent_urination', 'numbness', 'weakness', 'bloating',
     'itching', 'swollen_glands', 'chills', 'balance_problems',
+    'palpitations', 'blurred_vision', 'confusion', 'tremor',
+    'weight_loss', 'weight_gain', 'night_sweats', 'anxiety',
+    'insomnia', 'sadness', 'loss_of_interest', 'ear_pain',
+    'eye_pain', 'eye_redness', 'hoarseness', 'difficulty_swallowing',
+    'heartburn', 'bloody_stool', 'constipation', 'leg_swelling',
+    'fainting', 'seizure', 'slurred_speech', 'vision_changes',
+    'excessive_thirst', 'cold_intolerance', 'hair_loss',
+    'hives', 'nasal_congestion', 'facial_pain', 'tinnitus',
 ];
 let selectedSymptoms = new Set();
 
@@ -249,6 +283,8 @@ async function handleSymptomCheck(e) {
         showAlert('Please select at least one symptom', 'warning');
         return;
     }
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
     try {
         const data = await api('/symptoms/check', {
             method: 'POST',
@@ -261,7 +297,9 @@ async function handleSymptomCheck(e) {
         });
         renderSymptomResults(data);
     } catch (err) {
-        showAlert(err.detail, 'danger');
+        showAlert(err.detail || 'Symptom check failed', 'danger');
+    } finally {
+        setLoading(btn, false);
     }
 }
 
@@ -295,6 +333,8 @@ async function handleVitals(e) {
     e.preventDefault();
     const patientId = $('#vitals-patient-id').value.trim();
     if (!patientId) { showAlert('Patient ID is required', 'warning'); return; }
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
     try {
         const data = await api('/metrics/vitals', {
             method: 'POST',
@@ -311,6 +351,8 @@ async function handleVitals(e) {
         renderVitalsResult(data);
     } catch (err) {
         showAlert(typeof err.detail === 'string' ? err.detail : 'Failed to record vitals', 'danger');
+    } finally {
+        setLoading(btn, false);
     }
 }
 
@@ -339,6 +381,8 @@ function renderVitalsResult(data) {
 // --- Triage ---
 async function handleTriage(e) {
     e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
     try {
         const body = {
             patient_name: $('#tri-name').value,
@@ -362,6 +406,8 @@ async function handleTriage(e) {
         renderTriageResult(data);
     } catch (err) {
         showAlert(typeof err.detail === 'string' ? err.detail : 'Triage assessment failed', 'danger');
+    } finally {
+        setLoading(btn, false);
     }
 }
 
