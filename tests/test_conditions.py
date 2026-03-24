@@ -1,6 +1,3 @@
-from fastapi.testclient import TestClient
-
-
 class TestConditionsList:
     def test_list_all_conditions(self, client):
         response = client.get("/api/v1/symptoms/conditions")

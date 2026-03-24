@@ -15,7 +15,7 @@ from app.schemas.triage import (
     TriageResponse,
 )
 from app.services.triage_engine import perform_triage
-from app.utils.auth import get_current_user, require_role
+from app.utils.auth import require_role
 
 router = APIRouter(prefix="/api/v1/triage", tags=["Triage"])
 

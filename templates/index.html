@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Nurse</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="app">
+    <!-- Alerts -->
+    <div id="alerts" style="position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:200;width:90%;max-width:440px"></div>
+
+    <!-- Header (hidden until logged in) -->
+    <header class="header hidden" id="app-header">
+        <h1>AI Nurse</h1>
+        <div class="header-actions">
+            <span class="user-badge"><span id="user-name"></span> (<span id="user-role"></span>)</span>
+            <button id="btn-logout">Logout</button>
+        </div>
+    </header>
+
+    <!-- Nav tabs (hidden until logged in) -->
+    <nav class="nav-tabs hidden" id="app-nav">
+        <button class="nav-tab" data-screen="symptoms">Symptoms</button>
+        <button class="nav-tab" data-screen="bmi">BMI</button>
+        <button class="nav-tab" data-screen="triage">Triage</button>
+        <button class="nav-tab" data-screen="vitals">Vitals</button>
+    </nav>
+
+    <!-- Login Screen -->
+    <div class="screen" id="screen-login">
+        <div class="auth-screen">
+            <div class="logo">🏥</div>
+            <h2>AI Nurse</h2>
+            <p>Your digital healthcare assistant</p>
+            <form id="form-login" style="width:100%;max-width:320px">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required placeholder="Min 8 characters">
+                </div>
+                <button type="submit" class="btn btn-primary">Sign In</button>
+                <button type="button" class="link-btn" id="link-to-register" style="width:100%;text-align:center">
+                    Don't have an account? Register
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Register Screen -->
+    <div class="screen hidden" id="screen-register">
+        <div class="auth-screen">
+            <div class="logo">🏥</div>
+            <h2>Create Account</h2>
+            <p>Join AI Nurse today</p>
+            <form id="form-register" style="width:100%;max-width:320px">
+                <div class="form-group">
+                    <label for="reg-name">Full Name</label>
+                    <input type="text" id="reg-name" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email</label>
+                    <input type="email" id="reg-email" required placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <input type="password" id="reg-password" required minlength="8" placeholder="Min 8 characters">
+                </div>
+                <button type="submit" class="btn btn-primary">Register</button>
+                <button type="button" class="link-btn" id="link-to-login" style="width:100%;text-align:center">
+                    Already have an account? Sign in
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Symptom Checker Screen -->
+    <div class="screen hidden" id="screen-symptoms">
+        <div class="content">
+            <h3 class="section-title">Symptom Checker</h3>
+            <form id="form-symptoms">
+                <div class="form-group">
+                    <label>Select your symptoms</label>
+                    <div id="symptom-tags" class="symptom-tags"></div>
+                </div>
+                <div class="form-group">
+                    <label for="sym-duration">Duration (days)</label>
+                    <input type="number" id="sym-duration" required min="1" max="365" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="sym-severity">Severity</label>
+                    <select id="sym-severity">
+                        <option value="mild">Mild</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="severe">Severe</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sym-age">Age</label>
+                    <input type="number" id="sym-age" required min="1" max="150" value="35">
+                </div>
+                <button type="submit" class="btn btn-primary">Check Symptoms</button>
+            </form>
+            <div id="symptom-result" class="result-panel hidden"></div>
+        </div>
+    </div>
+
+    <!-- BMI Screen -->
+    <div class="screen hidden" id="screen-bmi">
+        <div class="content">
+            <h3 class="section-title">BMI Calculator</h3>
+            <form id="form-bmi">
+                <div class="form-group">
+                    <label for="bmi-height">Height (cm)</label>
+                    <input type="number" id="bmi-height" required min="1" max="300" step="0.1" placeholder="175">
+                </div>
+                <div class="form-group">
+                    <label for="bmi-weight">Weight (kg)</label>
+                    <input type="number" id="bmi-weight" required min="1" max="700" step="0.1" placeholder="70">
+                </div>
+                <button type="submit" class="btn btn-primary">Calculate BMI</button>
+            </form>
+            <div id="bmi-result" class="result-panel hidden"></div>
+        </div>
+    </div>
+
+    <!-- Triage Screen -->
+    <div class="screen hidden" id="screen-triage">
+        <div class="content">
+            <h3 class="section-title">Triage Assessment</h3>
+            <form id="form-triage">
+                <div class="form-group">
+                    <label for="tri-patient-id">Patient ID (optional)</label>
+                    <input type="text" id="tri-patient-id" placeholder="Leave empty for quick assessment">
+                </div>
+                <div class="form-group">
+                    <label for="tri-name">Patient Name</label>
+                    <input type="text" id="tri-name" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label for="tri-complaint">Chief Complaint</label>
+                    <input type="text" id="tri-complaint" required placeholder="e.g., Severe chest pain">
+                </div>
+                <div class="form-group">
+                    <label for="tri-symptoms">Symptoms (comma-separated)</label>
+                    <input type="text" id="tri-symptoms" required placeholder="chest_pain, shortness_of_breath">
+                </div>
+                <div class="form-group">
+                    <label for="tri-duration">Duration</label>
+                    <input type="text" id="tri-duration" required placeholder="e.g., 30 minutes">
+                </div>
+                <div class="form-group">
+                    <label for="tri-age">Age</label>
+                    <input type="number" id="tri-age" required min="1" max="150" value="35">
+                </div>
+                <div class="form-group">
+                    <label for="tri-pain">Pain Scale (0-10)</label>
+                    <input type="range" id="tri-pain" min="0" max="10" value="5" style="width:100%">
+                    <div style="text-align:center;font-weight:600" id="tri-pain-display">5</div>
+                </div>
+                <h4 style="margin:16px 0 8px;font-size:15px">Vitals</h4>
+                <div class="vitals-grid">
+                    <div class="form-group"><label>HR (bpm)</label><input type="number" id="tri-hr" required value="75"></div>
+                    <div class="form-group"><label>SpO2 (%)</label><input type="number" id="tri-spo2" required value="98"></div>
+                    <div class="form-group"><label>BP Sys</label><input type="number" id="tri-sys" required value="120"></div>
+                    <div class="form-group"><label>BP Dia</label><input type="number" id="tri-dia" required value="80"></div>
+                    <div class="form-group"><label>Temp (°C)</label><input type="number" id="tri-temp" required step="0.1" value="36.8"></div>
+                    <div class="form-group"><label>RR (/min)</label><input type="number" id="tri-rr" required value="16"></div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:12px">Assess</button>
+            </form>
+            <div id="triage-result" class="result-panel hidden"></div>
+        </div>
+    </div>
+
+    <!-- Vitals Screen -->
+    <div class="screen hidden" id="screen-vitals">
+        <div class="content">
+            <h3 class="section-title">Record Vitals</h3>
+            <form id="form-vitals">
+                <div class="form-group">
+                    <label for="vitals-patient-id">Patient ID</label>
+                    <input type="text" id="vitals-patient-id" required placeholder="Patient UUID">
+                </div>
+                <div class="vitals-grid">
+                    <div class="form-group"><label>HR (bpm)</label><input type="number" id="v-hr" required value="75"></div>
+                    <div class="form-group"><label>SpO2 (%)</label><input type="number" id="v-spo2" required value="98"></div>
+                    <div class="form-group"><label>BP Sys</label><input type="number" id="v-sys" required value="120"></div>
+                    <div class="form-group"><label>BP Dia</label><input type="number" id="v-dia" required value="80"></div>
+                    <div class="form-group"><label>Temp (°C)</label><input type="number" id="v-temp" required step="0.1" value="36.8"></div>
+                    <div class="form-group"><label>RR (/min)</label><input type="number" id="v-rr" required value="16"></div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:12px">Record Vitals</button>
+            </form>
+            <div id="vitals-result" class="result-panel hidden"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Pain slider display
+    document.addEventListener('DOMContentLoaded', () => {
+        const pain = document.getElementById('tri-pain');
+        const display = document.getElementById('tri-pain-display');
+        if (pain && display) {
+            pain.addEventListener('input', () => { display.textContent = pain.value; });
+        }
+    });
+</script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

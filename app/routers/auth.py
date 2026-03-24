@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -15,20 +17,22 @@ from app.schemas.auth import (
 from app.services.audit_logger import log_action
 from app.utils.auth import create_access_token, get_current_user, hash_password, require_role, verify_password
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
-def register(request: UserRegister, db: Session = Depends(get_db)) -> User:
+@limiter.limit("5/minute")
+def register(request: Request, body: UserRegister, db: Session = Depends(get_db)) -> User:
     """Register a new user account. All new users are assigned the 'patient' role."""
-    existing = db.query(User).filter(User.email == request.email).first()
+    existing = db.query(User).filter(User.email == body.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     user = User(
-        email=request.email,
-        hashed_password=hash_password(request.password),
-        full_name=request.full_name,
+        email=body.email,
+        hashed_password=hash_password(body.password),
+        full_name=body.full_name,
         role="patient",
     )
     db.add(user)
@@ -38,10 +42,11 @@ def register(request: UserRegister, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(request: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
+@limiter.limit("10/minute")
+def login(request: Request, body: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
     """Authenticate and receive a JWT access token."""
-    user = db.query(User).filter(User.email == request.email).first()
-    if user is None or not verify_password(request.password, user.hashed_password):
+    user = db.query(User).filter(User.email == body.email).first()
+    if user is None or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",

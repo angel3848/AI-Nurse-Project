@@ -1,0 +1,8 @@
+line-length = 120
+
+[lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]  # Line length handled by formatter
+
+[lint.per-file-ignores]
+"app/models/*.py" = ["F821"]  # Forward references in SQLAlchemy relationships

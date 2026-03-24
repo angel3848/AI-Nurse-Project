@@ -53,7 +53,7 @@ class TestAuditLogging:
         response = client.get("/api/v1/audit?action=delete", headers=auth_header(admin))
         data = response.json()
         assert data["total"] >= 1
-        delete_log = next(l for l in data["logs"] if l["action"] == "delete")
+        delete_log = next(log for log in data["logs"] if log["action"] == "delete")
         assert "Delete Me" in delete_log["detail"]
 
     def test_vitals_record_generates_audit(self, client, db):
