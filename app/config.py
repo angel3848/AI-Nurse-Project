@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     cookie_secure: bool = False  # Set True in production (requires HTTPS)
     cookie_domain: str | None = None
 
+    # Email notifications
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@ainurse.local"
+    smtp_from_name: str = "AI Nurse"
+    notification_enabled: bool = False
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

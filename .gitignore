@@ -43,3 +43,6 @@ htmlcov/
 
 # Redis
 dump.rdb
+
+# TLS certificates
+nginx/certs/*.pem
