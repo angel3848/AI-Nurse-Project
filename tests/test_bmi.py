@@ -1,10 +1,4 @@
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.services.bmi_calculator import calculate_bmi, get_bmi_category, get_healthy_weight_range
-
-client = TestClient(app)
 
 
 class TestCalculateBMI:
@@ -76,7 +70,7 @@ class TestGetHealthyWeightRange:
 
 
 class TestBMIEndpoint:
-    def test_valid_request(self):
+    def test_valid_request(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 175, "weight_kg": 70})
         assert response.status_code == 200
         data = response.json()
@@ -85,39 +79,39 @@ class TestBMIEndpoint:
         assert "healthy_weight_range" in data
         assert "interpretation" in data
 
-    def test_overweight_request(self):
+    def test_overweight_request(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 170, "weight_kg": 85})
         assert response.status_code == 200
         assert response.json()["category"] == "overweight"
 
-    def test_underweight_request(self):
+    def test_underweight_request(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 180, "weight_kg": 50})
         assert response.status_code == 200
         assert response.json()["category"] == "severe underweight"
 
-    def test_zero_height_rejected(self):
+    def test_zero_height_rejected(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 0, "weight_kg": 70})
         assert response.status_code == 422
 
-    def test_negative_weight_rejected(self):
+    def test_negative_weight_rejected(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 175, "weight_kg": -10})
         assert response.status_code == 422
 
-    def test_missing_field_rejected(self):
+    def test_missing_field_rejected(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 175})
         assert response.status_code == 422
 
-    def test_extreme_height_rejected(self):
+    def test_extreme_height_rejected(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 500, "weight_kg": 70})
         assert response.status_code == 422
 
-    def test_extreme_weight_rejected(self):
+    def test_extreme_weight_rejected(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 175, "weight_kg": 800})
         assert response.status_code == 422
 
 
 class TestHealthEndpoint:
-    def test_health_check(self):
+    def test_health_check(self, client):
         response = client.get("/health")
         assert response.status_code == 200
         data = response.json()

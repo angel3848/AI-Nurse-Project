@@ -1,14 +1,10 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.services.symptom_checker import (
     check_symptoms,
     determine_urgency,
     match_conditions,
     score_to_probability,
 )
-
-client = TestClient(app)
+from app.schemas.symptom import SymptomCheckRequest
 
 
 def make_request(overrides: dict | None = None) -> dict:
@@ -68,7 +64,6 @@ class TestMatchConditions:
         assert len(matches) > 0
 
     def test_max_five_results_via_service(self):
-        from app.schemas.symptom import SymptomCheckRequest
         request = SymptomCheckRequest(
             symptoms=["fever", "cough", "fatigue", "body_aches", "nausea", "headache", "rash", "chills"],
             duration_days=2,
@@ -133,7 +128,7 @@ class TestDetermineUrgency:
 
 
 class TestSymptomEndpoint:
-    def test_valid_request(self):
+    def test_valid_request(self, client):
         request = make_request({"symptoms": ["fever", "cough", "fatigue", "body_aches"]})
         response = client.post("/api/v1/symptoms/check", json=request)
         assert response.status_code == 200
@@ -143,7 +138,7 @@ class TestSymptomEndpoint:
         assert "urgency" in data
         assert "disclaimer" in data
 
-    def test_cardiac_emergency(self):
+    def test_cardiac_emergency(self, client):
         request = make_request({
             "symptoms": ["chest_pain", "shortness_of_breath", "sweating"],
             "severity": "severe",
@@ -155,27 +150,27 @@ class TestSymptomEndpoint:
         conditions = [c["condition"] for c in data["possible_conditions"]]
         assert "Possible Cardiac Event" in conditions
 
-    def test_mild_symptoms(self):
+    def test_mild_symptoms(self, client):
         request = make_request({"symptoms": ["cough", "runny_nose", "sore_throat"]})
         response = client.post("/api/v1/symptoms/check", json=request)
         data = response.json()
         conditions = [c["condition"] for c in data["possible_conditions"]]
         assert "Common Cold" in conditions
 
-    def test_no_matching_conditions(self):
+    def test_no_matching_conditions(self, client):
         request = make_request({"symptoms": ["hiccups"]})
         response = client.post("/api/v1/symptoms/check", json=request)
         data = response.json()
         assert data["possible_conditions"] == []
         assert data["urgency"] == "low"
 
-    def test_disclaimer_always_present(self):
+    def test_disclaimer_always_present(self, client):
         request = make_request()
         response = client.post("/api/v1/symptoms/check", json=request)
         data = response.json()
         assert "not a medical diagnosis" in data["disclaimer"]
 
-    def test_conditions_have_required_fields(self):
+    def test_conditions_have_required_fields(self, client):
         request = make_request({"symptoms": ["fever", "cough", "fatigue"]})
         response = client.post("/api/v1/symptoms/check", json=request)
         data = response.json()
@@ -185,17 +180,17 @@ class TestSymptomEndpoint:
             assert "description" in condition
             assert "category" in condition
 
-    def test_validation_empty_symptoms(self):
+    def test_validation_empty_symptoms(self, client):
         request = make_request({"symptoms": []})
         response = client.post("/api/v1/symptoms/check", json=request)
         assert response.status_code == 422
 
-    def test_validation_invalid_severity(self):
+    def test_validation_invalid_severity(self, client):
         request = make_request({"severity": "extreme"})
         response = client.post("/api/v1/symptoms/check", json=request)
         assert response.status_code == 422
 
-    def test_validation_zero_duration(self):
+    def test_validation_zero_duration(self, client):
         request = make_request({"duration_days": 0})
         response = client.post("/api/v1/symptoms/check", json=request)
         assert response.status_code == 422

@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class MedicationReminderCreate(BaseModel):
-    patient_name: str = Field(..., min_length=1, max_length=200)
+    patient_id: str = Field(..., min_length=1)
     medication_name: str = Field(..., min_length=1, max_length=200)
     dosage: str = Field(..., min_length=1, max_length=100)
     frequency: str = Field(..., pattern="^(once_daily|twice_daily|three_times_daily|four_times_daily|as_needed)$")
@@ -14,9 +14,9 @@ class MedicationReminderCreate(BaseModel):
     instructions: str = Field("", max_length=500)
 
 
-class MedicationReminder(BaseModel):
+class MedicationReminderResponse(BaseModel):
     id: str
-    patient_name: str
+    patient_id: str
     medication_name: str
     dosage: str
     frequency: str
@@ -26,8 +26,10 @@ class MedicationReminder(BaseModel):
     instructions: str
     status: str
 
+    model_config = {"from_attributes": True}
+
 
 class MedicationListResponse(BaseModel):
-    patient_name: str
-    medications: list[MedicationReminder]
+    patient_id: str
+    medications: list[MedicationReminderResponse]
     total: int

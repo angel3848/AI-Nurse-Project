@@ -1,16 +1,10 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.schemas.triage import Vitals
 from app.services.triage_engine import (
     assess_pain,
     assess_symptoms,
     assess_vitals,
     apply_age_modifier,
-    perform_triage,
 )
-
-client = TestClient(app)
 
 NORMAL_VITALS = {
     "heart_rate": 75,
@@ -189,7 +183,7 @@ class TestAgeModifier:
 
 
 class TestTriageEndpoint:
-    def test_non_urgent_case(self):
+    def test_non_urgent_case(self, client):
         response = client.post("/api/v1/triage", json=make_request())
         assert response.status_code == 200
         data = response.json()
@@ -198,7 +192,7 @@ class TestTriageEndpoint:
         assert data["patient_name"] == "John Doe"
         assert "vitals_summary" in data
 
-    def test_emergency_chest_pain(self):
+    def test_emergency_chest_pain(self, client):
         request = make_request({
             "chief_complaint": "Severe chest pain",
             "symptoms": ["chest_pain", "difficulty_breathing", "sweating"],
@@ -211,7 +205,7 @@ class TestTriageEndpoint:
         assert data["priority_level"] <= 2
         assert data["priority_color"] in ("red", "orange")
 
-    def test_critical_cardiac_arrest(self):
+    def test_critical_cardiac_arrest(self, client):
         request = make_request({
             "symptoms": ["cardiac_arrest"],
             "pain_scale": 0,
@@ -222,36 +216,36 @@ class TestTriageEndpoint:
         assert data["priority_level"] == 1
         assert data["priority_label"] == "Resuscitation"
 
-    def test_pediatric_patient_bump(self):
+    def test_pediatric_patient_bump(self, client):
         request = make_request({"age": 3, "pain_scale": 5})
         response = client.post("/api/v1/triage", json=request)
         data = response.json()
         assert data["priority_level"] <= 3
         assert "pediatric_patient" in data["flags"]
 
-    def test_geriatric_patient_bump(self):
+    def test_geriatric_patient_bump(self, client):
         request = make_request({"age": 80, "pain_scale": 5})
         response = client.post("/api/v1/triage", json=request)
         data = response.json()
         assert "geriatric_patient" in data["flags"]
 
-    def test_validation_empty_symptoms(self):
+    def test_validation_empty_symptoms(self, client):
         request = make_request({"symptoms": []})
         response = client.post("/api/v1/triage", json=request)
         assert response.status_code == 422
 
-    def test_validation_invalid_pain_scale(self):
+    def test_validation_invalid_pain_scale(self, client):
         request = make_request({"pain_scale": 15})
         response = client.post("/api/v1/triage", json=request)
         assert response.status_code == 422
 
-    def test_validation_missing_vitals(self):
+    def test_validation_missing_vitals(self, client):
         request = make_request()
         del request["vitals"]
         response = client.post("/api/v1/triage", json=request)
         assert response.status_code == 422
 
-    def test_vitals_summary_present(self):
+    def test_vitals_summary_present(self, client):
         response = client.post("/api/v1/triage", json=make_request())
         data = response.json()
         summary = data["vitals_summary"]
@@ -260,7 +254,7 @@ class TestTriageEndpoint:
         assert "temperature" in summary
         assert "oxygen_saturation" in summary
 
-    def test_flags_are_unique(self):
+    def test_flags_are_unique(self, client):
         request = make_request({
             "vitals": {**NORMAL_VITALS, "heart_rate": 160, "oxygen_saturation": 80},
         })
