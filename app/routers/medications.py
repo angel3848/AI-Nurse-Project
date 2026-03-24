@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.user import User
 from app.schemas.medication import (
     MedicationListResponse,
     MedicationReminderCreate,
@@ -13,6 +14,7 @@ from app.services.medication_scheduler import (
     get_patient_medications,
     get_reminder,
 )
+from app.utils.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/v1/medications", tags=["Medications"])
 
@@ -21,8 +23,9 @@ router = APIRouter(prefix="/api/v1/medications", tags=["Medications"])
 def create_medication_reminder(
     request: MedicationReminderCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("nurse", "doctor")),
 ) -> MedicationReminderResponse:
-    """Create a medication reminder for a patient."""
+    """Create a medication reminder. Requires nurse or doctor role."""
     try:
         return create_reminder(db, request)
     except ValueError as e:
@@ -33,8 +36,9 @@ def create_medication_reminder(
 def get_medication_reminder(
     reminder_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> MedicationReminderResponse:
-    """Get a specific medication reminder."""
+    """Get a specific medication reminder. Requires authentication."""
     reminder = get_reminder(db, reminder_id)
     if reminder is None:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -45,8 +49,9 @@ def get_medication_reminder(
 def list_patient_medications(
     patient_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> MedicationListResponse:
-    """List all medications for a patient."""
+    """List all medications for a patient. Requires authentication."""
     meds = get_patient_medications(db, patient_id)
     return MedicationListResponse(patient_id=patient_id, medications=meds, total=len(meds))
 
@@ -55,8 +60,9 @@ def list_patient_medications(
 def delete_medication_reminder(
     reminder_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("nurse", "doctor")),
 ) -> MedicationReminderResponse:
-    """Cancel a medication reminder."""
+    """Cancel a medication reminder. Requires nurse or doctor role."""
     reminder = cancel_reminder(db, reminder_id)
     if reminder is None:
         raise HTTPException(status_code=404, detail="Reminder not found")

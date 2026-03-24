@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, get_db
 from app.main import app
+from app.models.user import User
+from app.utils.auth import create_access_token, hash_password
 
 TEST_DATABASE_URL = "sqlite:///./test_ai_nurse.db"
 
@@ -42,3 +44,25 @@ def client(db):
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+def create_test_user(db, role: str = "patient", email: str = None) -> User:
+    """Create a test user and return it."""
+    if email is None:
+        email = f"{role}@test.com"
+    user = User(
+        email=email,
+        hashed_password=hash_password("testpass123"),
+        full_name=f"Test {role.capitalize()}",
+        role=role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def auth_header(user: User) -> dict:
+    """Generate an Authorization header for a user."""
+    token = create_access_token(user.id, user.role)
+    return {"Authorization": f"Bearer {token}"}
