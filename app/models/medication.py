@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, func
+from sqlalchemy import Date, DateTime, ForeignKey, JSON, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -15,7 +15,7 @@ class MedicationReminderModel(Base):
     medication_name: Mapped[str] = mapped_column(String(200), nullable=False)
     dosage: Mapped[str] = mapped_column(String(100), nullable=False)
     frequency: Mapped[str] = mapped_column(String(50), nullable=False)
-    times: Mapped[str] = mapped_column(String(200), nullable=False)  # JSON string of time list
+    times: Mapped[list] = mapped_column(JSON, nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     instructions: Mapped[str] = mapped_column(String(500), default="")

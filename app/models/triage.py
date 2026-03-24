@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, ForeignKey, func
+from sqlalchemy import DateTime, Float, Integer, JSON, String, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -13,7 +13,7 @@ class TriageRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("patients.id"), nullable=False, index=True)
     chief_complaint: Mapped[str] = mapped_column(String(1000), nullable=False)
-    symptoms: Mapped[str] = mapped_column(String(2000), nullable=False)  # JSON string
+    symptoms: Mapped[list] = mapped_column(JSON, nullable=False)
     symptom_duration: Mapped[str] = mapped_column(String(200), nullable=False)
     pain_scale: Mapped[int] = mapped_column(Integer, nullable=False)
     heart_rate: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -25,7 +25,7 @@ class TriageRecord(Base):
     priority_level: Mapped[int] = mapped_column(Integer, nullable=False)
     priority_label: Mapped[str] = mapped_column(String(50), nullable=False)
     recommended_action: Mapped[str] = mapped_column(String(500), nullable=False)
-    flags: Mapped[str] = mapped_column(String(2000), nullable=False)  # JSON string
+    flags: Mapped[list] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="waiting", index=True)
     notes: Mapped[str] = mapped_column(String(2000), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -38,11 +38,11 @@ class SymptomCheckRecord(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("patients.id"), nullable=False, index=True)
-    symptoms: Mapped[str] = mapped_column(String(2000), nullable=False)  # JSON string
+    symptoms: Mapped[list] = mapped_column(JSON, nullable=False)
     duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
     urgency: Mapped[str] = mapped_column(String(20), nullable=False)
-    conditions_found: Mapped[str] = mapped_column(String(2000), nullable=False)  # JSON string
+    conditions_found: Mapped[list] = mapped_column(JSON, nullable=False)
     recommended_action: Mapped[str] = mapped_column(String(500), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

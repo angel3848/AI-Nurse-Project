@@ -1,18 +1,9 @@
-import json
 from datetime import date, time
 
 from sqlalchemy.orm import Session
 
 from app.models.medication import MedicationReminderModel
 from app.schemas.medication import MedicationReminderCreate, MedicationReminderResponse
-
-
-def _times_to_json(times: list[time]) -> str:
-    return json.dumps([t.isoformat() for t in times])
-
-
-def _json_to_times(times_str: str) -> list[time]:
-    return [time.fromisoformat(t) for t in json.loads(times_str)]
 
 
 def _model_to_response(model: MedicationReminderModel) -> MedicationReminderResponse:
@@ -22,7 +13,7 @@ def _model_to_response(model: MedicationReminderModel) -> MedicationReminderResp
         medication_name=model.medication_name,
         dosage=model.dosage,
         frequency=model.frequency,
-        times=_json_to_times(model.times),
+        times=[time.fromisoformat(t) for t in model.times],
         start_date=model.start_date,
         end_date=model.end_date,
         instructions=model.instructions,
@@ -39,7 +30,7 @@ def create_reminder(db: Session, request: MedicationReminderCreate) -> Medicatio
         medication_name=request.medication_name,
         dosage=request.dosage,
         frequency=request.frequency,
-        times=_times_to_json(request.times),
+        times=[t.isoformat() for t in request.times],
         start_date=request.start_date,
         end_date=request.end_date,
         instructions=request.instructions,

@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -144,9 +142,9 @@ def get_patient_history(
                     "priority_level": t.priority_level,
                     "priority_label": t.priority_label,
                     "chief_complaint": t.chief_complaint,
-                    "symptoms": json.loads(t.symptoms),
+                    "symptoms": t.symptoms,
                     "pain_scale": t.pain_scale,
-                    "flags": json.loads(t.flags),
+                    "flags": t.flags,
                     "recommended_action": t.recommended_action,
                     "vitals": {
                         "heart_rate": t.heart_rate,
@@ -167,14 +165,14 @@ def get_patient_history(
             .all()
         )
         for s in symptom_records:
-            conditions = json.loads(s.conditions_found)
+            conditions = s.conditions_found
             top_condition = conditions[0]["condition"] if conditions else "No match"
             records.append(HistoryRecord(
                 id=s.id,
                 record_type="symptom_check",
                 summary=f"{s.urgency.capitalize()} urgency — {top_condition}",
                 details={
-                    "symptoms": json.loads(s.symptoms),
+                    "symptoms": s.symptoms,
                     "duration_days": s.duration_days,
                     "severity": s.severity,
                     "urgency": s.urgency,

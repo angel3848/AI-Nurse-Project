@@ -1,24 +1,23 @@
 const API = '/api/v1';
-let token = localStorage.getItem('token');
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
 
 // --- API helpers ---
 async function api(path, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...options.headers };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${API}${path}`, { ...options, headers });
+    const res = await fetch(`${API}${path}`, { ...options, headers, credentials: 'same-origin' });
     if (res.status === 204) return null;
+    if (res.status === 401) {
+        // Token expired or invalid — redirect to login
+        currentUser = null;
+        localStorage.removeItem('user');
+        showScreen('login');
+        hide($('#app-header'));
+        hide($('#app-nav'));
+        showAlert('Session expired. Please log in again.', 'warning');
+        throw { status: 401, detail: 'Session expired' };
+    }
     const data = await res.json();
     if (!res.ok) throw { status: res.status, detail: data.detail || 'Request failed' };
-    return data;
-}
-
-async function apiFile(path, formData) {
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${API}${path}`, { method: 'POST', headers, body: formData });
-    const data = await res.json();
-    if (!res.ok) throw { status: res.status, detail: data.detail || 'Upload failed' };
     return data;
 }
 
@@ -67,9 +66,7 @@ async function handleLogin(e) {
                 password: $('#login-password').value,
             }),
         });
-        token = data.access_token;
         currentUser = data.user;
-        localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(currentUser));
         enterApp();
     } catch (err) {
@@ -77,10 +74,9 @@ async function handleLogin(e) {
     }
 }
 
-function logout() {
-    token = null;
+async function logout() {
+    try { await api('/auth/logout', { method: 'POST' }); } catch (e) {}
     currentUser = null;
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
     showScreen('login');
     hide($('#app-header'));
@@ -528,9 +524,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Symptom tags
     renderSymptomTags();
 
-    // Auto-login
-    if (token && currentUser) {
-        enterApp();
+    // Auto-login via cookie — verify session with /auth/me
+    if (currentUser) {
+        api('/auth/me').then(user => {
+            currentUser = user;
+            localStorage.setItem('user', JSON.stringify(user));
+            enterApp();
+        }).catch(() => {
+            currentUser = null;
+            localStorage.removeItem('user');
+            showScreen('login');
+        });
     } else {
         showScreen('login');
     }

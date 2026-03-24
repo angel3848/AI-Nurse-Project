@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -10,7 +11,9 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+COOKIE_NAME = "access_token"
 
 
 def hash_password(password: str) -> str:
@@ -27,8 +30,49 @@ def create_access_token(user_id: str, role: str) -> str:
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
+def set_auth_cookie(response: Response, token: str) -> None:
+    """Set JWT as an httpOnly cookie."""
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        domain=settings.cookie_domain,
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    """Clear the auth cookie on logout."""
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        domain=settings.cookie_domain,
+        path="/",
+    )
+
+
+def _extract_token(request: Request, bearer_token: Optional[str]) -> str:
+    """Extract JWT from cookie first, then fall back to Authorization header."""
+    token = request.cookies.get(COOKIE_NAME)
+    if token:
+        return token
+    if bearer_token:
+        return bearer_token
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    bearer_token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
@@ -36,6 +80,7 @@ def get_current_user(
         detail="Invalid or expired token",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = _extract_token(request, bearer_token)
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         user_id: str = payload.get("sub")

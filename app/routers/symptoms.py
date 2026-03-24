@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -24,11 +22,11 @@ def symptom_check(request: SymptomCheckRequest, db: Session = Depends(get_db)) -
     if request.patient_id:
         record = SymptomCheckRecord(
             patient_id=request.patient_id,
-            symptoms=json.dumps(request.symptoms),
+            symptoms=request.symptoms,
             duration_days=request.duration_days,
             severity=request.severity,
             urgency=result.urgency,
-            conditions_found=json.dumps([c.model_dump() for c in result.possible_conditions]),
+            conditions_found=[c.model_dump() for c in result.possible_conditions],
             recommended_action=result.recommended_action,
         )
         db.add(record)

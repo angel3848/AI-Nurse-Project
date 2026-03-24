@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -15,7 +15,15 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.services.audit_logger import log_action
-from app.utils.auth import create_access_token, get_current_user, hash_password, require_role, verify_password
+from app.utils.auth import (
+    clear_auth_cookie,
+    create_access_token,
+    get_current_user,
+    hash_password,
+    require_role,
+    set_auth_cookie,
+    verify_password,
+)
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
@@ -43,8 +51,8 @@ def register(request: Request, body: UserRegister, db: Session = Depends(get_db)
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def login(request: Request, body: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
-    """Authenticate and receive a JWT access token."""
+def login(request: Request, response: Response, body: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
+    """Authenticate and receive a JWT access token (also set as httpOnly cookie)."""
     user = db.query(User).filter(User.email == body.email).first()
     if user is None or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
@@ -55,10 +63,18 @@ def login(request: Request, body: UserLogin, db: Session = Depends(get_db)) -> T
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
     token = create_access_token(user.id, user.role)
+    set_auth_cookie(response, token)
     return TokenResponse(
         access_token=token,
         user=UserResponse.model_validate(user),
     )
+
+
+@router.post("/logout")
+def logout_user(response: Response) -> dict:
+    """Clear the auth cookie."""
+    clear_auth_cookie(response)
+    return {"detail": "Logged out"}
 
 
 @router.get("/me", response_model=UserResponse)

@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -29,7 +28,7 @@ def create_triage(request: TriageRequest, db: Session = Depends(get_db)) -> Tria
         record = TriageRecord(
             patient_id=request.patient_id,
             chief_complaint=request.chief_complaint,
-            symptoms=json.dumps(request.symptoms),
+            symptoms=request.symptoms,
             symptom_duration=request.symptom_duration,
             pain_scale=request.pain_scale,
             heart_rate=request.vitals.heart_rate,
@@ -41,7 +40,7 @@ def create_triage(request: TriageRequest, db: Session = Depends(get_db)) -> Tria
             priority_level=result.priority_level,
             priority_label=result.priority_label,
             recommended_action=result.recommended_action,
-            flags=json.dumps(result.flags),
+            flags=result.flags,
             notes=request.notes,
             status="waiting",
         )
