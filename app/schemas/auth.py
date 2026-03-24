@@ -26,3 +26,20 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class RoleUpdate(BaseModel):
+    role: str = Field(..., pattern="^(patient|nurse|doctor|admin)$")
+
+
+class UserListResponse(BaseModel):
+    users: list[UserResponse]
+    total: int
+
+
+class DeactivateResponse(BaseModel):
+    id: str
+    email: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}

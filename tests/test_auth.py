@@ -214,3 +214,150 @@ class TestRoleBasedAccess:
     def test_unauthenticated_cannot_access_protected(self, client):
         response = client.get("/api/v1/patients")
         assert response.status_code == 401
+
+
+class TestListUsers:
+    def test_admin_can_list_users(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        create_test_user(db, role="nurse", email="nurse@test.com")
+        create_test_user(db, role="patient", email="patient@test.com")
+        response = client.get("/api/v1/auth/users", headers=auth_header(admin))
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+
+    def test_filter_by_role(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        create_test_user(db, role="nurse", email="nurse1@test.com")
+        create_test_user(db, role="nurse", email="nurse2@test.com")
+        create_test_user(db, role="patient", email="patient@test.com")
+        response = client.get("/api/v1/auth/users?role=nurse", headers=auth_header(admin))
+        data = response.json()
+        assert data["total"] == 2
+        assert all(u["role"] == "nurse" for u in data["users"])
+
+    def test_non_admin_cannot_list_users(self, client, db):
+        nurse = create_test_user(db, role="nurse")
+        response = client.get("/api/v1/auth/users", headers=auth_header(nurse))
+        assert response.status_code == 403
+
+    def test_pagination(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        for i in range(5):
+            create_test_user(db, role="patient", email=f"p{i}@test.com")
+        response = client.get("/api/v1/auth/users?limit=2&offset=0", headers=auth_header(admin))
+        data = response.json()
+        assert data["total"] == 6  # admin + 5 patients
+        assert len(data["users"]) == 2
+
+
+class TestUpdateRole:
+    def test_promote_to_nurse(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        patient = create_test_user(db, role="patient", email="promote@test.com")
+        response = client.put(f"/api/v1/auth/users/{patient.id}/role",
+                              json={"role": "nurse"}, headers=auth_header(admin))
+        assert response.status_code == 200
+        assert response.json()["role"] == "nurse"
+
+    def test_promote_to_doctor(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        nurse = create_test_user(db, role="nurse", email="nurse@test.com")
+        response = client.put(f"/api/v1/auth/users/{nurse.id}/role",
+                              json={"role": "doctor"}, headers=auth_header(admin))
+        assert response.status_code == 200
+        assert response.json()["role"] == "doctor"
+
+    def test_demote_to_patient(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        doctor = create_test_user(db, role="doctor", email="doc@test.com")
+        response = client.put(f"/api/v1/auth/users/{doctor.id}/role",
+                              json={"role": "patient"}, headers=auth_header(admin))
+        assert response.status_code == 200
+        assert response.json()["role"] == "patient"
+
+    def test_cannot_change_own_role(self, client, db):
+        admin = create_test_user(db, role="admin")
+        response = client.put(f"/api/v1/auth/users/{admin.id}/role",
+                              json={"role": "patient"}, headers=auth_header(admin))
+        assert response.status_code == 400
+        assert "own role" in response.json()["detail"]
+
+    def test_invalid_role_rejected(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        user = create_test_user(db, role="patient", email="user@test.com")
+        response = client.put(f"/api/v1/auth/users/{user.id}/role",
+                              json={"role": "superadmin"}, headers=auth_header(admin))
+        assert response.status_code == 422
+
+    def test_user_not_found(self, client, db):
+        admin = create_test_user(db, role="admin")
+        response = client.put("/api/v1/auth/users/nonexistent/role",
+                              json={"role": "nurse"}, headers=auth_header(admin))
+        assert response.status_code == 404
+
+    def test_non_admin_cannot_change_roles(self, client, db):
+        nurse = create_test_user(db, role="nurse", email="nurse@test.com")
+        patient = create_test_user(db, role="patient", email="patient@test.com")
+        response = client.put(f"/api/v1/auth/users/{patient.id}/role",
+                              json={"role": "doctor"}, headers=auth_header(nurse))
+        assert response.status_code == 403
+
+    def test_role_change_generates_audit(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        patient = create_test_user(db, role="patient", email="audit@test.com")
+        client.put(f"/api/v1/auth/users/{patient.id}/role",
+                   json={"role": "nurse"}, headers=auth_header(admin))
+        response = client.get("/api/v1/audit?action=update&resource_type=user",
+                              headers=auth_header(admin))
+        data = response.json()
+        assert data["total"] >= 1
+        assert "patient -> nurse" in data["logs"][0]["detail"]
+
+
+class TestDeactivateActivate:
+    def test_deactivate_user(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        user = create_test_user(db, role="nurse", email="deact@test.com")
+        response = client.put(f"/api/v1/auth/users/{user.id}/deactivate",
+                              headers=auth_header(admin))
+        assert response.status_code == 200
+        assert response.json()["is_active"] is False
+
+    def test_deactivated_user_cannot_login(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        user = create_test_user(db, role="nurse", email="blocked@test.com")
+        client.put(f"/api/v1/auth/users/{user.id}/deactivate", headers=auth_header(admin))
+        response = client.post("/api/v1/auth/login", json={
+            "email": "blocked@test.com",
+            "password": "testpass123",
+        })
+        assert response.status_code == 403
+
+    def test_activate_user(self, client, db):
+        admin = create_test_user(db, role="admin", email="admin@test.com")
+        user = create_test_user(db, role="nurse", email="react@test.com")
+        client.put(f"/api/v1/auth/users/{user.id}/deactivate", headers=auth_header(admin))
+        response = client.put(f"/api/v1/auth/users/{user.id}/activate",
+                              headers=auth_header(admin))
+        assert response.status_code == 200
+        assert response.json()["is_active"] is True
+
+    def test_cannot_deactivate_self(self, client, db):
+        admin = create_test_user(db, role="admin")
+        response = client.put(f"/api/v1/auth/users/{admin.id}/deactivate",
+                              headers=auth_header(admin))
+        assert response.status_code == 400
+
+    def test_deactivate_not_found(self, client, db):
+        admin = create_test_user(db, role="admin")
+        response = client.put("/api/v1/auth/users/nonexistent/deactivate",
+                              headers=auth_header(admin))
+        assert response.status_code == 404
+
+    def test_non_admin_cannot_deactivate(self, client, db):
+        nurse = create_test_user(db, role="nurse", email="nurse@test.com")
+        patient = create_test_user(db, role="patient", email="patient@test.com")
+        response = client.put(f"/api/v1/auth/users/{patient.id}/deactivate",
+                              headers=auth_header(nurse))
+        assert response.status_code == 403
