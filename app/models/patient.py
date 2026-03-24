@@ -27,3 +27,4 @@ class Patient(Base):
     medications: Mapped[list["MedicationReminderModel"]] = relationship(back_populates="patient")
     triage_records: Mapped[list["TriageRecord"]] = relationship(back_populates="patient")
     symptom_checks: Mapped[list["SymptomCheckRecord"]] = relationship(back_populates="patient")
+    vitals_records: Mapped[list["VitalsRecord"]] = relationship(back_populates="patient")

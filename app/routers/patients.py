@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -15,6 +15,7 @@ from app.schemas.patient import (
     PatientResponse,
     PatientUpdate,
 )
+from app.services.audit_logger import log_action
 from app.utils.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/v1/patients", tags=["Patients"])
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api/v1/patients", tags=["Patients"])
 @router.post("", response_model=PatientResponse, status_code=201)
 def create_patient(
     request: PatientCreate,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("nurse", "doctor", "admin")),
 ) -> Patient:
@@ -31,6 +33,9 @@ def create_patient(
     db.add(patient)
     db.commit()
     db.refresh(patient)
+    log_action(db, action="create", resource_type="patient", resource_id=patient.id,
+               detail=f"Created patient: {patient.full_name}", user=current_user,
+               ip_address=http_request.client.host if http_request.client else None)
     return patient
 
 
@@ -57,6 +62,8 @@ def get_patient(
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
+    log_action(db, action="read", resource_type="patient", resource_id=patient_id,
+               detail=f"Viewed patient: {patient.full_name}", user=current_user)
     return patient
 
 
@@ -64,6 +71,7 @@ def get_patient(
 def update_patient(
     patient_id: str,
     request: PatientUpdate,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("nurse", "doctor", "admin")),
 ) -> Patient:
@@ -78,12 +86,16 @@ def update_patient(
 
     db.commit()
     db.refresh(patient)
+    log_action(db, action="update", resource_type="patient", resource_id=patient_id,
+               detail=f"Updated fields: {', '.join(update_data.keys())}", user=current_user,
+               ip_address=http_request.client.host if http_request.client else None)
     return patient
 
 
 @router.delete("/{patient_id}", status_code=204)
 def delete_patient(
     patient_id: str,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ) -> None:
@@ -91,8 +103,12 @@ def delete_patient(
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
+    patient_name = patient.full_name
     db.delete(patient)
     db.commit()
+    log_action(db, action="delete", resource_type="patient", resource_id=patient_id,
+               detail=f"Deleted patient: {patient_name}", user=current_user,
+               ip_address=http_request.client.host if http_request.client else None)
 
 
 @router.get("/{patient_id}/history", response_model=PatientHistoryResponse)

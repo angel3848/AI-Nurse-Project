@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import Base, engine
-from app.models import medication, patient, triage, user  # noqa: F401 — register models
+from app.models import audit, medication, patient, triage, user, vitals  # noqa: F401 — register models
+from app.routers import audit as audit_router
 from app.routers import auth, medications, metrics, patients, symptoms
 from app.routers import triage as triage_router
 
@@ -37,6 +38,7 @@ app.include_router(triage_router.router)
 app.include_router(symptoms.router)
 app.include_router(medications.router)
 app.include_router(patients.router)
+app.include_router(audit_router.router)
 
 
 @app.get("/health")
