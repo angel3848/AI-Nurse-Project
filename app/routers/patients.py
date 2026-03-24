@@ -1,11 +1,16 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.patient import Patient
+from app.models.triage import SymptomCheckRecord, TriageRecord
 from app.models.user import User
 from app.schemas.patient import (
+    HistoryRecord,
     PatientCreate,
+    PatientHistoryResponse,
     PatientListResponse,
     PatientResponse,
     PatientUpdate,
@@ -88,3 +93,87 @@ def delete_patient(
         raise HTTPException(status_code=404, detail="Patient not found")
     db.delete(patient)
     db.commit()
+
+
+@router.get("/{patient_id}/history", response_model=PatientHistoryResponse)
+def get_patient_history(
+    patient_id: str,
+    record_type: str | None = Query(None, pattern="^(triage|symptom_check)$"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PatientHistoryResponse:
+    """Get a patient's history of triage assessments and symptom checks."""
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if patient is None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    records: list[HistoryRecord] = []
+
+    if record_type is None or record_type == "triage":
+        triage_records = (
+            db.query(TriageRecord)
+            .filter(TriageRecord.patient_id == patient_id)
+            .order_by(TriageRecord.created_at.desc())
+            .all()
+        )
+        for t in triage_records:
+            records.append(HistoryRecord(
+                id=t.id,
+                record_type="triage",
+                summary=f"Level {t.priority_level} ({t.priority_label}) — {t.chief_complaint}",
+                details={
+                    "priority_level": t.priority_level,
+                    "priority_label": t.priority_label,
+                    "chief_complaint": t.chief_complaint,
+                    "symptoms": json.loads(t.symptoms),
+                    "pain_scale": t.pain_scale,
+                    "flags": json.loads(t.flags),
+                    "recommended_action": t.recommended_action,
+                    "vitals": {
+                        "heart_rate": t.heart_rate,
+                        "blood_pressure": f"{t.bp_systolic}/{t.bp_diastolic}",
+                        "temperature_c": t.temperature_c,
+                        "respiratory_rate": t.respiratory_rate,
+                        "oxygen_saturation": t.oxygen_saturation,
+                    },
+                },
+                created_at=t.created_at,
+            ))
+
+    if record_type is None or record_type == "symptom_check":
+        symptom_records = (
+            db.query(SymptomCheckRecord)
+            .filter(SymptomCheckRecord.patient_id == patient_id)
+            .order_by(SymptomCheckRecord.created_at.desc())
+            .all()
+        )
+        for s in symptom_records:
+            conditions = json.loads(s.conditions_found)
+            top_condition = conditions[0]["condition"] if conditions else "No match"
+            records.append(HistoryRecord(
+                id=s.id,
+                record_type="symptom_check",
+                summary=f"{s.urgency.capitalize()} urgency — {top_condition}",
+                details={
+                    "symptoms": json.loads(s.symptoms),
+                    "duration_days": s.duration_days,
+                    "severity": s.severity,
+                    "urgency": s.urgency,
+                    "conditions_found": conditions,
+                    "recommended_action": s.recommended_action,
+                },
+                created_at=s.created_at,
+            ))
+
+    records.sort(key=lambda r: r.created_at, reverse=True)
+    total = len(records)
+    records = records[offset:offset + limit]
+
+    return PatientHistoryResponse(
+        patient_id=patient_id,
+        patient_name=patient.full_name,
+        records=records,
+        total=total,
+    )

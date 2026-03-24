@@ -45,3 +45,20 @@ class PatientResponse(BaseModel):
 class PatientListResponse(BaseModel):
     patients: list[PatientResponse]
     total: int
+
+
+class HistoryRecord(BaseModel):
+    id: str
+    record_type: str
+    summary: str
+    details: dict
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PatientHistoryResponse(BaseModel):
+    patient_id: str
+    patient_name: str
+    records: list[HistoryRecord]
+    total: int

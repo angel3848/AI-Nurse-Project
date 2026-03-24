@@ -11,6 +11,7 @@ class Vitals(BaseModel):
 
 
 class TriageRequest(BaseModel):
+    patient_id: str | None = Field(None, description="Optional patient ID to persist the triage record")
     patient_name: str = Field(..., min_length=1, max_length=200)
     chief_complaint: str = Field(..., min_length=1, max_length=1000)
     symptoms: list[str] = Field(..., min_length=1)
@@ -22,6 +23,7 @@ class TriageRequest(BaseModel):
 
 
 class TriageResponse(BaseModel):
+    id: str | None = None
     patient_name: str
     priority_level: int = Field(..., ge=1, le=5)
     priority_label: str
