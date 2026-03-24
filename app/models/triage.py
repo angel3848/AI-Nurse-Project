@@ -26,6 +26,7 @@ class TriageRecord(Base):
     priority_label: Mapped[str] = mapped_column(String(50), nullable=False)
     recommended_action: Mapped[str] = mapped_column(String(500), nullable=False)
     flags: Mapped[str] = mapped_column(String(2000), nullable=False)  # JSON string
+    status: Mapped[str] = mapped_column(String(20), default="waiting", index=True)
     notes: Mapped[str] = mapped_column(String(2000), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

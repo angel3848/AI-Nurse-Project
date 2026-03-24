@@ -122,6 +122,51 @@ class TestPatientHistory:
         assert record["record_type"] == "symptom_check"
         assert "urgency" in record["details"]
 
+    def test_history_with_vitals(self, client, db):
+        headers, pid = setup_patient(client, db)
+        client.post("/api/v1/metrics/vitals", json={
+            "patient_id": pid,
+            "heart_rate": 80,
+            "blood_pressure_systolic": 125,
+            "blood_pressure_diastolic": 82,
+            "temperature_c": 37.0,
+            "respiratory_rate": 18,
+            "oxygen_saturation": 97,
+        }, headers=headers)
+        response = client.get(f"/api/v1/patients/{pid}/history", headers=headers)
+        data = response.json()
+        assert data["total"] == 1
+        record = data["records"][0]
+        assert record["record_type"] == "vitals"
+        assert "HR 80" in record["summary"]
+        assert record["details"]["heart_rate"] == 80
+
+    def test_history_filter_vitals_only(self, client, db):
+        headers, pid = setup_patient(client, db)
+        client.post("/api/v1/triage", json={
+            "patient_id": pid,
+            "patient_name": "History Patient",
+            "chief_complaint": "Test",
+            "symptoms": ["headache"],
+            "symptom_duration": "1 hour",
+            "vitals": NORMAL_VITALS,
+            "pain_scale": 2,
+            "age": 35,
+        })
+        client.post("/api/v1/metrics/vitals", json={
+            "patient_id": pid,
+            "heart_rate": 72,
+            "blood_pressure_systolic": 118,
+            "blood_pressure_diastolic": 76,
+            "temperature_c": 36.6,
+            "respiratory_rate": 15,
+            "oxygen_saturation": 99,
+        }, headers=headers)
+        response = client.get(f"/api/v1/patients/{pid}/history?record_type=vitals", headers=headers)
+        data = response.json()
+        assert data["total"] == 1
+        assert data["records"][0]["record_type"] == "vitals"
+
     def test_history_mixed_records(self, client, db):
         headers, pid = setup_patient(client, db)
         # Add triage
@@ -143,11 +188,21 @@ class TestPatientHistory:
             "severity": "moderate",
             "age": 35,
         })
+        # Add vitals
+        client.post("/api/v1/metrics/vitals", json={
+            "patient_id": pid,
+            "heart_rate": 72,
+            "blood_pressure_systolic": 118,
+            "blood_pressure_diastolic": 76,
+            "temperature_c": 36.6,
+            "respiratory_rate": 15,
+            "oxygen_saturation": 99,
+        }, headers=headers)
         response = client.get(f"/api/v1/patients/{pid}/history", headers=headers)
         data = response.json()
-        assert data["total"] == 2
+        assert data["total"] == 3
         types = {r["record_type"] for r in data["records"]}
-        assert types == {"triage", "symptom_check"}
+        assert types == {"triage", "symptom_check", "vitals"}
 
     def test_history_filter_by_type(self, client, db):
         headers, pid = setup_patient(client, db)

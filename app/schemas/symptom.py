@@ -26,3 +26,15 @@ class SymptomCheckResponse(BaseModel):
         "This is not a medical diagnosis. Please consult a healthcare "
         "professional for proper evaluation and treatment."
     )
+
+
+class ConditionInfo(BaseModel):
+    condition: str
+    category: str
+    description: str
+    required_symptoms: list[str]
+
+
+class ConditionsListResponse(BaseModel):
+    conditions: list[ConditionInfo]
+    total: int

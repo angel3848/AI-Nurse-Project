@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -31,3 +33,20 @@ class TriageResponse(BaseModel):
     recommended_action: str
     flags: list[str]
     vitals_summary: dict[str, str]
+
+
+class TriageQueueItem(BaseModel):
+    id: str
+    patient_id: str
+    patient_name: str
+    priority_level: int
+    priority_label: str
+    priority_color: str
+    chief_complaint: str
+    created_at: datetime
+    wait_time_minutes: int
+
+
+class TriageQueueResponse(BaseModel):
+    queue: list[TriageQueueItem]
+    total: int

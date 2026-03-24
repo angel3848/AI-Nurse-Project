@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.patient import Patient
 from app.models.triage import SymptomCheckRecord, TriageRecord
 from app.models.user import User
+from app.models.vitals import VitalsRecord
 from app.schemas.patient import (
     HistoryRecord,
     PatientCreate,
@@ -114,7 +115,7 @@ def delete_patient(
 @router.get("/{patient_id}/history", response_model=PatientHistoryResponse)
 def get_patient_history(
     patient_id: str,
-    record_type: str | None = Query(None, pattern="^(triage|symptom_check)$"),
+    record_type: str | None = Query(None, pattern="^(triage|symptom_check|vitals)$"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -181,6 +182,31 @@ def get_patient_history(
                     "recommended_action": s.recommended_action,
                 },
                 created_at=s.created_at,
+            ))
+
+    if record_type is None or record_type == "vitals":
+        vitals_records = (
+            db.query(VitalsRecord)
+            .filter(VitalsRecord.patient_id == patient_id)
+            .order_by(VitalsRecord.recorded_at.desc())
+            .all()
+        )
+        for v in vitals_records:
+            records.append(HistoryRecord(
+                id=v.id,
+                record_type="vitals",
+                summary=f"Vitals — HR {v.heart_rate}, BP {v.bp_systolic}/{v.bp_diastolic}, SpO2 {v.oxygen_saturation}%",
+                details={
+                    "heart_rate": v.heart_rate,
+                    "blood_pressure": f"{v.bp_systolic}/{v.bp_diastolic}",
+                    "temperature_c": v.temperature_c,
+                    "respiratory_rate": v.respiratory_rate,
+                    "oxygen_saturation": v.oxygen_saturation,
+                    "blood_glucose_mg_dl": v.blood_glucose_mg_dl,
+                    "notes": v.notes,
+                    "recorded_by": v.recorded_by,
+                },
+                created_at=v.recorded_at,
             ))
 
     records.sort(key=lambda r: r.created_at, reverse=True)
