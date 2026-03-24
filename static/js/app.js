@@ -13,18 +13,29 @@ async function api(path, options = {}) {
     return data;
 }
 
+async function apiFile(path, formData) {
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API}${path}`, { method: 'POST', headers, body: formData });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, detail: data.detail || 'Upload failed' };
+    return data;
+}
+
 // --- DOM helpers ---
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 const show = (el) => el.classList.remove('hidden');
 const hide = (el) => el.classList.add('hidden');
 
 // --- Screen management ---
 function showScreen(name) {
-    document.querySelectorAll('.screen').forEach(s => hide(s));
+    $$('.screen').forEach(s => hide(s));
     show($(`#screen-${name}`));
-    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    $$('.nav-tab').forEach(t => t.classList.remove('active'));
     const tab = $(`.nav-tab[data-screen="${name}"]`);
     if (tab) tab.classList.add('active');
+    if (name === 'dashboard') loadDashboard();
 }
 
 // --- Auth ---
@@ -81,7 +92,95 @@ function enterApp() {
     show($('#app-nav'));
     $('#user-name').textContent = currentUser.full_name;
     $('#user-role').textContent = currentUser.role;
-    showScreen('symptoms');
+
+    // Show/hide tabs based on role
+    const isStaff = ['nurse', 'doctor', 'admin'].includes(currentUser.role);
+    $$('.staff-only').forEach(el => isStaff ? show(el) : hide(el));
+
+    showScreen('dashboard');
+}
+
+// --- Dashboard ---
+async function loadDashboard() {
+    const container = $('#dashboard-content');
+    const role = currentUser.role;
+    let html = `<div class="greeting">Welcome back, <strong>${currentUser.full_name}</strong></div>`;
+
+    // Quick actions
+    html += '<div class="section-title" style="margin-top:16px">Quick Actions</div>';
+    html += '<div class="quick-actions">';
+    html += '<button class="action-card" onclick="showScreen(\'symptoms\')"><div class="action-icon">🔍</div><div>Symptom Check</div></button>';
+    html += '<button class="action-card" onclick="showScreen(\'bmi\')"><div class="action-icon">⚖️</div><div>BMI Calculator</div></button>';
+    if (isStaff()) {
+        html += '<button class="action-card" onclick="showScreen(\'triage\')"><div class="action-icon">🚨</div><div>Triage</div></button>';
+        html += '<button class="action-card" onclick="showScreen(\'vitals\')"><div class="action-icon">💓</div><div>Record Vitals</div></button>';
+        html += '<button class="action-card" onclick="showScreen(\'camera\')"><div class="action-icon">📷</div><div>Camera</div></button>';
+    }
+    html += '</div>';
+
+    // Staff dashboard: triage queue + stats
+    if (isStaff()) {
+        try {
+            const queue = await api('/triage/queue?status=waiting');
+            html += '<div class="section-title" style="margin-top:24px">Triage Queue</div>';
+            if (queue.total === 0) {
+                html += '<div class="card"><p style="color:var(--gray-500);text-align:center">No patients waiting</p></div>';
+            } else {
+                html += `<div class="stat-bar"><span class="stat-count">${queue.total}</span> patient${queue.total !== 1 ? 's' : ''} waiting</div>`;
+                queue.queue.slice(0, 5).forEach(item => {
+                    html += `<div class="card">
+                        <div class="card-header">
+                            <span class="card-title">${item.patient_name}</span>
+                            <span class="badge badge-${item.priority_color}">Level ${item.priority_level}</span>
+                        </div>
+                        <div class="card-meta">${item.chief_complaint}</div>
+                        <div class="card-meta">Waiting: ${item.wait_time_minutes} min</div>
+                    </div>`;
+                });
+                if (queue.total > 5) {
+                    html += `<p style="text-align:center;color:var(--gray-500);font-size:13px">+ ${queue.total - 5} more</p>`;
+                }
+            }
+        } catch (e) {
+            // Queue not accessible, skip
+        }
+
+        // Recent conditions overview
+        try {
+            const conditions = await api('/symptoms/conditions');
+            html += '<div class="section-title" style="margin-top:24px">Condition Database</div>';
+            html += '<div class="stat-bar">';
+            const categories = {};
+            conditions.conditions.forEach(c => {
+                categories[c.category] = (categories[c.category] || 0) + 1;
+            });
+            for (const [cat, count] of Object.entries(categories)) {
+                html += `<span class="stat-chip">${cat}: ${count}</span>`;
+            }
+            html += '</div>';
+        } catch (e) {}
+    }
+
+    // Patient view: health tips
+    if (role === 'patient') {
+        html += '<div class="section-title" style="margin-top:24px">Health Tips</div>';
+        html += `<div class="card">
+            <div class="card-title">Stay Healthy</div>
+            <ul style="margin-top:8px;padding-left:20px;color:var(--gray-700);font-size:14px;line-height:1.8">
+                <li>Take medications on schedule</li>
+                <li>Track your symptoms — early detection saves lives</li>
+                <li>Stay hydrated and get adequate rest</li>
+                <li>Use the symptom checker if you feel unwell</li>
+                <li>Contact your doctor for persistent symptoms</li>
+            </ul>
+        </div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function isStaff() {
+    return ['nurse', 'doctor', 'admin'].includes(currentUser?.role);
 }
 
 // --- BMI ---
@@ -96,9 +195,15 @@ async function handleBMI(e) {
             }),
         });
         const result = $('#bmi-result');
+        const colorMap = {
+            'severe underweight': 'var(--danger)', 'moderate underweight': 'var(--warning)',
+            'underweight': 'var(--warning)', 'normal': 'var(--success)',
+            'overweight': 'var(--warning)', 'obese class I': 'var(--danger)',
+            'obese class II': 'var(--danger)', 'obese class III': 'var(--danger)',
+        };
         result.innerHTML = `
             <div class="bmi-result">
-                <div class="bmi-value">${data.bmi}</div>
+                <div class="bmi-value" style="color:${colorMap[data.category] || 'inherit'}">${data.bmi}</div>
                 <div class="bmi-category">${data.category}</div>
                 <p style="margin-top:12px;color:var(--gray-500);font-size:14px">${data.interpretation}</p>
                 <p style="margin-top:8px;font-size:13px;color:var(--gray-500)">
@@ -126,6 +231,7 @@ let selectedSymptoms = new Set();
 
 function renderSymptomTags() {
     const container = $('#symptom-tags');
+    if (!container) return;
     container.innerHTML = COMMON_SYMPTOMS.map(s =>
         `<span class="symptom-tag ${selectedSymptoms.has(s) ? 'selected' : ''}" data-symptom="${s}">
             ${s.replace(/_/g, ' ')}
@@ -169,7 +275,6 @@ function renderSymptomResults(data) {
     let html = `<div class="alert alert-${urgencyClass[data.urgency] || 'info'}">
         Urgency: <strong>${data.urgency.toUpperCase()}</strong> — ${data.recommended_action}
     </div>`;
-
     if (data.possible_conditions.length > 0) {
         html += '<div class="result-header">Possible Conditions</div>';
         data.possible_conditions.forEach(c => {
@@ -193,10 +298,7 @@ function renderSymptomResults(data) {
 async function handleVitals(e) {
     e.preventDefault();
     const patientId = $('#vitals-patient-id').value.trim();
-    if (!patientId) {
-        showAlert('Patient ID is required', 'warning');
-        return;
-    }
+    if (!patientId) { showAlert('Patient ID is required', 'warning'); return; }
     try {
         const data = await api('/metrics/vitals', {
             method: 'POST',
@@ -288,6 +390,95 @@ function renderTriageResult(data) {
     show(result);
 }
 
+// --- Camera ---
+let cameraStream = null;
+
+async function startCamera() {
+    const video = $('#camera-video');
+    const placeholder = $('#camera-placeholder');
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+        });
+        video.srcObject = cameraStream;
+        show(video);
+        hide(placeholder);
+        show($('#camera-controls'));
+        hide($('#btn-start-camera'));
+    } catch (err) {
+        showAlert('Camera access denied. Please allow camera permissions.', 'danger');
+    }
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    const video = $('#camera-video');
+    video.srcObject = null;
+    hide(video);
+    show($('#camera-placeholder'));
+    hide($('#camera-controls'));
+    show($('#btn-start-camera'));
+}
+
+function capturePhoto() {
+    const video = $('#camera-video');
+    const canvas = $('#camera-canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const gallery = $('#photo-gallery');
+    const timestamp = new Date().toLocaleTimeString();
+
+    const photoHtml = `
+        <div class="photo-card">
+            <img src="${dataUrl}" alt="Capture" class="photo-thumb">
+            <div class="photo-info">
+                <div class="photo-time">${timestamp}</div>
+                <button class="btn btn-small btn-secondary" onclick="downloadPhoto(this)">Save</button>
+            </div>
+        </div>
+    `;
+    gallery.insertAdjacentHTML('afterbegin', photoHtml);
+    show(gallery);
+    showAlert('Photo captured', 'success');
+}
+
+function downloadPhoto(btn) {
+    const img = btn.closest('.photo-card').querySelector('img');
+    const a = document.createElement('a');
+    a.href = img.src;
+    a.download = `ai-nurse-capture-${Date.now()}.jpg`;
+    a.click();
+}
+
+function switchCameraFacing() {
+    const video = $('#camera-video');
+    const currentFacing = video.dataset.facing || 'environment';
+    const newFacing = currentFacing === 'environment' ? 'user' : 'environment';
+    video.dataset.facing = newFacing;
+    stopCamera();
+    // Restart with new facing
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+    }).then(stream => {
+        cameraStream = stream;
+        video.srcObject = stream;
+        show(video);
+        hide($('#camera-placeholder'));
+        show($('#camera-controls'));
+        hide($('#btn-start-camera'));
+    }).catch(() => {
+        showAlert('Could not switch camera', 'warning');
+    });
+}
+
 // --- Alerts ---
 function showAlert(message, type = 'info') {
     const container = $('#alerts');
@@ -300,23 +491,39 @@ function showAlert(message, type = 'info') {
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Auth forms
+    // Auth
     $('#form-register')?.addEventListener('submit', handleRegister);
     $('#form-login')?.addEventListener('submit', handleLogin);
     $('#btn-logout')?.addEventListener('click', logout);
     $('#link-to-register')?.addEventListener('click', () => showScreen('register'));
     $('#link-to-login')?.addEventListener('click', () => showScreen('login'));
 
-    // Feature forms
+    // Features
     $('#form-bmi')?.addEventListener('submit', handleBMI);
     $('#form-symptoms')?.addEventListener('submit', handleSymptomCheck);
     $('#form-vitals')?.addEventListener('submit', handleVitals);
     $('#form-triage')?.addEventListener('submit', handleTriage);
 
+    // Camera
+    $('#btn-start-camera')?.addEventListener('click', startCamera);
+    $('#btn-capture')?.addEventListener('click', capturePhoto);
+    $('#btn-stop-camera')?.addEventListener('click', stopCamera);
+    $('#btn-switch-camera')?.addEventListener('click', switchCameraFacing);
+
     // Nav tabs
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.addEventListener('click', () => showScreen(tab.dataset.screen));
+    $$('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            if (tab.dataset.screen !== 'camera') stopCamera();
+            showScreen(tab.dataset.screen);
+        });
     });
+
+    // Pain slider
+    const pain = $('#tri-pain');
+    const display = $('#tri-pain-display');
+    if (pain && display) {
+        pain.addEventListener('input', () => { display.textContent = pain.value; });
+    }
 
     // Symptom tags
     renderSymptomTags();

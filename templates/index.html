@@ -11,7 +11,7 @@
     <!-- Alerts -->
     <div id="alerts" style="position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:200;width:90%;max-width:440px"></div>
 
-    <!-- Header (hidden until logged in) -->
+    <!-- Header -->
     <header class="header hidden" id="app-header">
         <h1>AI Nurse</h1>
         <div class="header-actions">
@@ -20,15 +20,17 @@
         </div>
     </header>
 
-    <!-- Nav tabs (hidden until logged in) -->
+    <!-- Nav -->
     <nav class="nav-tabs hidden" id="app-nav">
+        <button class="nav-tab" data-screen="dashboard">Home</button>
         <button class="nav-tab" data-screen="symptoms">Symptoms</button>
         <button class="nav-tab" data-screen="bmi">BMI</button>
-        <button class="nav-tab" data-screen="triage">Triage</button>
-        <button class="nav-tab" data-screen="vitals">Vitals</button>
+        <button class="nav-tab staff-only" data-screen="triage">Triage</button>
+        <button class="nav-tab staff-only" data-screen="vitals">Vitals</button>
+        <button class="nav-tab staff-only" data-screen="camera">Camera</button>
     </nav>
 
-    <!-- Login Screen -->
+    <!-- Login -->
     <div class="screen" id="screen-login">
         <div class="auth-screen">
             <div class="logo">🏥</div>
@@ -51,7 +53,7 @@
         </div>
     </div>
 
-    <!-- Register Screen -->
+    <!-- Register -->
     <div class="screen hidden" id="screen-register">
         <div class="auth-screen">
             <div class="logo">🏥</div>
@@ -78,7 +80,14 @@
         </div>
     </div>
 
-    <!-- Symptom Checker Screen -->
+    <!-- Dashboard -->
+    <div class="screen hidden" id="screen-dashboard">
+        <div class="content" id="dashboard-content">
+            <div class="loading">Loading dashboard...</div>
+        </div>
+    </div>
+
+    <!-- Symptom Checker -->
     <div class="screen hidden" id="screen-symptoms">
         <div class="content">
             <h3 class="section-title">Symptom Checker</h3>
@@ -109,7 +118,7 @@
         </div>
     </div>
 
-    <!-- BMI Screen -->
+    <!-- BMI -->
     <div class="screen hidden" id="screen-bmi">
         <div class="content">
             <h3 class="section-title">BMI Calculator</h3>
@@ -128,7 +137,7 @@
         </div>
     </div>
 
-    <!-- Triage Screen -->
+    <!-- Triage -->
     <div class="screen hidden" id="screen-triage">
         <div class="content">
             <h3 class="section-title">Triage Assessment</h3>
@@ -177,7 +186,7 @@
         </div>
     </div>
 
-    <!-- Vitals Screen -->
+    <!-- Vitals -->
     <div class="screen hidden" id="screen-vitals">
         <div class="content">
             <h3 class="section-title">Record Vitals</h3>
@@ -199,18 +208,37 @@
             <div id="vitals-result" class="result-panel hidden"></div>
         </div>
     </div>
+
+    <!-- Camera -->
+    <div class="screen hidden" id="screen-camera">
+        <div class="content">
+            <h3 class="section-title">Medical Camera</h3>
+            <p style="color:var(--gray-500);font-size:13px;margin-bottom:12px">
+                Capture photos of wounds, conditions, or documents for patient records.
+            </p>
+            <div class="camera-container">
+                <div id="camera-placeholder" class="camera-placeholder">
+                    <div style="font-size:48px">📷</div>
+                    <p>Camera is off</p>
+                </div>
+                <video id="camera-video" class="camera-video hidden" autoplay playsinline></video>
+                <canvas id="camera-canvas" style="display:none"></canvas>
+            </div>
+            <button class="btn btn-primary" id="btn-start-camera" style="margin-top:12px">Start Camera</button>
+            <div class="camera-actions hidden" id="camera-controls">
+                <button class="btn btn-primary" id="btn-capture">Capture Photo</button>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-secondary" id="btn-switch-camera" style="flex:1">Flip Camera</button>
+                    <button class="btn btn-danger" id="btn-stop-camera" style="flex:1">Stop</button>
+                </div>
+            </div>
+            <div id="photo-gallery" class="photo-gallery hidden">
+                <h4 style="margin:16px 0 8px;font-size:15px">Captured Photos</h4>
+            </div>
+        </div>
+    </div>
 </div>
 
-<script>
-    // Pain slider display
-    document.addEventListener('DOMContentLoaded', () => {
-        const pain = document.getElementById('tri-pain');
-        const display = document.getElementById('tri-pain-display');
-        if (pain && display) {
-            pain.addEventListener('input', () => { display.textContent = pain.value; });
-        }
-    });
-</script>
 <script src="/static/js/app.js"></script>
 </body>
 </html>
