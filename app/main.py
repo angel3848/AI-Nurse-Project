@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import metrics, triage
+from app.routers import medications, metrics, symptoms, triage
 
 app = FastAPI(
     title=settings.app_name,
@@ -20,6 +20,8 @@ app.add_middleware(
 
 app.include_router(metrics.router)
 app.include_router(triage.router)
+app.include_router(symptoms.router)
+app.include_router(medications.router)
 
 
 @app.get("/health")
