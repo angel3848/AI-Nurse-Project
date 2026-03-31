@@ -44,11 +44,7 @@ def build_reminder_email(medication_name: str, dosage: str, instructions: str) -
     """Build email subject, HTML body, and text body for a medication reminder."""
     subject = f"Medication Reminder: {medication_name}"
 
-    body_text = (
-        f"Time to take your medication!\n\n"
-        f"Medication: {medication_name}\n"
-        f"Dosage: {dosage}\n"
-    )
+    body_text = f"Time to take your medication!\n\n" f"Medication: {medication_name}\n" f"Dosage: {dosage}\n"
     if instructions:
         body_text += f"Instructions: {instructions}\n"
     body_text += "\nThis is an automated reminder from AI Nurse."

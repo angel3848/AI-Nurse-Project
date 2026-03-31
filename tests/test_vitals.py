@@ -15,11 +15,15 @@ NORMAL_VITALS = {
 def setup_patient_and_nurse(client, db):
     nurse = create_test_user(db, role="nurse")
     headers = auth_header(nurse)
-    resp = client.post("/api/v1/patients", json={
-        "full_name": "Vitals Patient",
-        "date_of_birth": "1990-01-01",
-        "gender": "male",
-    }, headers=headers)
+    resp = client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": "Vitals Patient",
+            "date_of_birth": "1990-01-01",
+            "gender": "male",
+        },
+        headers=headers,
+    )
     return nurse, headers, resp.json()["id"]
 
 
@@ -139,7 +143,9 @@ class TestVitalsHistory:
     def test_history_with_records(self, client, db):
         nurse, headers, pid = setup_patient_and_nurse(client, db)
         client.post("/api/v1/metrics/vitals", json={**NORMAL_VITALS, "patient_id": pid}, headers=headers)
-        client.post("/api/v1/metrics/vitals", json={**NORMAL_VITALS, "patient_id": pid, "heart_rate": 90}, headers=headers)
+        client.post(
+            "/api/v1/metrics/vitals", json={**NORMAL_VITALS, "patient_id": pid, "heart_rate": 90}, headers=headers
+        )
         response = client.get(f"/api/v1/metrics/vitals/{pid}", headers=headers)
         data = response.json()
         assert data["total"] == 2

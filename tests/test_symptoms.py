@@ -144,11 +144,13 @@ class TestSymptomEndpoint:
         assert "disclaimer" in data
 
     def test_cardiac_emergency(self, client, db):
-        request = make_request({
-            "symptoms": ["chest_pain", "shortness_of_breath", "sweating"],
-            "severity": "severe",
-            "duration_days": 1,
-        })
+        request = make_request(
+            {
+                "symptoms": ["chest_pain", "shortness_of_breath", "sweating"],
+                "severity": "severe",
+                "duration_days": 1,
+            }
+        )
         response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         data = response.json()
         assert data["urgency"] == "emergency"

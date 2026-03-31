@@ -78,7 +78,8 @@ def record_vitals(
         action="create",
         resource_type="vitals",
         resource_id=record.id,
-        detail=f"Recorded vitals for patient {request.patient_id}" + (f" — alerts: {', '.join(alerts)}" if alerts else ""),
+        detail=f"Recorded vitals for patient {request.patient_id}"
+        + (f" — alerts: {', '.join(alerts)}" if alerts else ""),
         user=current_user,
         ip_address=http_request.client.host if http_request.client else None,
     )
@@ -128,15 +129,17 @@ def get_vitals_history(
                 oxygen_saturation=r.oxygen_saturation,
                 blood_glucose_mg_dl=r.blood_glucose_mg_dl,
             )
-        responses.append(VitalsRecordResponse(
-            id=r.id,
-            patient_id=r.patient_id,
-            readings=readings,
-            alerts=alerts,
-            notes=r.notes,
-            recorded_by=r.recorded_by,
-            recorded_at=r.recorded_at,
-        ))
+        responses.append(
+            VitalsRecordResponse(
+                id=r.id,
+                patient_id=r.patient_id,
+                readings=readings,
+                alerts=alerts,
+                notes=r.notes,
+                recorded_by=r.recorded_by,
+                recorded_at=r.recorded_at,
+            )
+        )
 
     log_action(
         db,

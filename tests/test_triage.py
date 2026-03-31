@@ -198,12 +198,14 @@ class TestTriageEndpoint:
         assert "vitals_summary" in data
 
     def test_emergency_chest_pain(self, client, db):
-        request = make_request({
-            "chief_complaint": "Severe chest pain",
-            "symptoms": ["chest_pain", "difficulty_breathing", "sweating"],
-            "pain_scale": 9,
-            "vitals": {**NORMAL_VITALS, "heart_rate": 135, "oxygen_saturation": 88},
-        })
+        request = make_request(
+            {
+                "chief_complaint": "Severe chest pain",
+                "symptoms": ["chest_pain", "difficulty_breathing", "sweating"],
+                "pain_scale": 9,
+                "vitals": {**NORMAL_VITALS, "heart_rate": 135, "oxygen_saturation": 88},
+            }
+        )
         response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         assert response.status_code == 200
         data = response.json()
@@ -211,11 +213,13 @@ class TestTriageEndpoint:
         assert data["priority_color"] in ("red", "orange")
 
     def test_critical_cardiac_arrest(self, client, db):
-        request = make_request({
-            "symptoms": ["cardiac_arrest"],
-            "pain_scale": 0,
-            "vitals": {**NORMAL_VITALS, "heart_rate": 30, "blood_pressure_systolic": 60},
-        })
+        request = make_request(
+            {
+                "symptoms": ["cardiac_arrest"],
+                "pain_scale": 0,
+                "vitals": {**NORMAL_VITALS, "heart_rate": 30, "blood_pressure_systolic": 60},
+            }
+        )
         response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         data = response.json()
         assert data["priority_level"] == 1
@@ -260,9 +264,11 @@ class TestTriageEndpoint:
         assert "oxygen_saturation" in summary
 
     def test_flags_are_unique(self, client, db):
-        request = make_request({
-            "vitals": {**NORMAL_VITALS, "heart_rate": 160, "oxygen_saturation": 80},
-        })
+        request = make_request(
+            {
+                "vitals": {**NORMAL_VITALS, "heart_rate": 160, "oxygen_saturation": 80},
+            }
+        )
         response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         data = response.json()
         assert len(data["flags"]) == len(set(data["flags"]))

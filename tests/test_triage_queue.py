@@ -14,23 +14,31 @@ def setup_with_triage(client, db, chief_complaint="Headache", pain_scale=3):
     """Create nurse, patient, and a triage record. Return (headers, patient_id, triage_id)."""
     nurse = create_test_user(db, role="nurse", email=f"nurse-{chief_complaint}@test.com")
     headers = auth_header(nurse)
-    p_resp = client.post("/api/v1/patients", json={
-        "full_name": f"Patient {chief_complaint}",
-        "date_of_birth": "1990-01-01",
-        "gender": "male",
-    }, headers=headers)
+    p_resp = client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": f"Patient {chief_complaint}",
+            "date_of_birth": "1990-01-01",
+            "gender": "male",
+        },
+        headers=headers,
+    )
     pid = p_resp.json()["id"]
 
-    t_resp = client.post("/api/v1/triage", json={
-        "patient_id": pid,
-        "patient_name": f"Patient {chief_complaint}",
-        "chief_complaint": chief_complaint,
-        "symptoms": ["headache"],
-        "symptom_duration": "2 hours",
-        "vitals": NORMAL_VITALS,
-        "pain_scale": pain_scale,
-        "age": 35,
-    }, headers=headers)
+    t_resp = client.post(
+        "/api/v1/triage",
+        json={
+            "patient_id": pid,
+            "patient_name": f"Patient {chief_complaint}",
+            "chief_complaint": chief_complaint,
+            "symptoms": ["headache"],
+            "symptom_duration": "2 hours",
+            "vitals": NORMAL_VITALS,
+            "pain_scale": pain_scale,
+            "age": 35,
+        },
+        headers=headers,
+    )
     tid = t_resp.json()["id"]
     return nurse, headers, pid, tid
 
@@ -49,21 +57,29 @@ class TestTriageQueue:
         # Need a second nurse with different email for the second triage
         nurse2 = create_test_user(db, role="nurse", email="nurse2@test.com")
         headers2 = auth_header(nurse2)
-        p2 = client.post("/api/v1/patients", json={
-            "full_name": "Patient 2",
-            "date_of_birth": "1985-01-01",
-            "gender": "female",
-        }, headers=headers2)
-        client.post("/api/v1/triage", json={
-            "patient_id": p2.json()["id"],
-            "patient_name": "Patient 2",
-            "chief_complaint": "Chest pain",
-            "symptoms": ["chest_pain"],
-            "symptom_duration": "30 min",
-            "vitals": NORMAL_VITALS,
-            "pain_scale": 8,
-            "age": 55,
-        }, headers=headers2)
+        p2 = client.post(
+            "/api/v1/patients",
+            json={
+                "full_name": "Patient 2",
+                "date_of_birth": "1985-01-01",
+                "gender": "female",
+            },
+            headers=headers2,
+        )
+        client.post(
+            "/api/v1/triage",
+            json={
+                "patient_id": p2.json()["id"],
+                "patient_name": "Patient 2",
+                "chief_complaint": "Chest pain",
+                "symptoms": ["chest_pain"],
+                "symptom_duration": "30 min",
+                "vitals": NORMAL_VITALS,
+                "pain_scale": 8,
+                "age": 55,
+            },
+            headers=headers2,
+        )
 
         response = client.get("/api/v1/triage/queue", headers=headers)
         data = response.json()
@@ -77,21 +93,29 @@ class TestTriageQueue:
 
         # Create 3 patients with different severities
         for i, (complaint, pain) in enumerate([("Mild headache", 2), ("Severe chest pain", 9), ("Moderate pain", 5)]):
-            p = client.post("/api/v1/patients", json={
-                "full_name": f"Patient {i}",
-                "date_of_birth": "1990-01-01",
-                "gender": "male",
-            }, headers=headers)
-            client.post("/api/v1/triage", json={
-                "patient_id": p.json()["id"],
-                "patient_name": f"Patient {i}",
-                "chief_complaint": complaint,
-                "symptoms": ["chest_pain"] if pain > 7 else ["headache"],
-                "symptom_duration": "1 hour",
-                "vitals": NORMAL_VITALS,
-                "pain_scale": pain,
-                "age": 35,
-            }, headers=headers)
+            p = client.post(
+                "/api/v1/patients",
+                json={
+                    "full_name": f"Patient {i}",
+                    "date_of_birth": "1990-01-01",
+                    "gender": "male",
+                },
+                headers=headers,
+            )
+            client.post(
+                "/api/v1/triage",
+                json={
+                    "patient_id": p.json()["id"],
+                    "patient_name": f"Patient {i}",
+                    "chief_complaint": complaint,
+                    "symptoms": ["chest_pain"] if pain > 7 else ["headache"],
+                    "symptom_duration": "1 hour",
+                    "vitals": NORMAL_VITALS,
+                    "pain_scale": pain,
+                    "age": 35,
+                },
+                headers=headers,
+            )
 
         response = client.get("/api/v1/triage/queue", headers=headers)
         levels = [item["priority_level"] for item in response.json()["queue"]]

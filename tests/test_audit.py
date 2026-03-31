@@ -6,11 +6,15 @@ class TestAuditLogging:
         nurse = create_test_user(db, role="nurse", email="nurse@test.com")
         admin = create_test_user(db, role="admin", email="admin@test.com")
         # Create a patient (triggers audit)
-        client.post("/api/v1/patients", json={
-            "full_name": "Audited Patient",
-            "date_of_birth": "1990-01-01",
-            "gender": "male",
-        }, headers=auth_header(nurse))
+        client.post(
+            "/api/v1/patients",
+            json={
+                "full_name": "Audited Patient",
+                "date_of_birth": "1990-01-01",
+                "gender": "male",
+            },
+            headers=auth_header(nurse),
+        )
 
         # Check audit logs
         response = client.get("/api/v1/audit?resource_type=patient&action=create", headers=auth_header(admin))
@@ -26,27 +30,36 @@ class TestAuditLogging:
     def test_patient_read_generates_audit(self, client, db):
         nurse = create_test_user(db, role="nurse", email="nurse@test.com")
         admin = create_test_user(db, role="admin", email="admin@test.com")
-        resp = client.post("/api/v1/patients", json={
-            "full_name": "Read Patient",
-            "date_of_birth": "1990-01-01",
-            "gender": "male",
-        }, headers=auth_header(nurse))
+        resp = client.post(
+            "/api/v1/patients",
+            json={
+                "full_name": "Read Patient",
+                "date_of_birth": "1990-01-01",
+                "gender": "male",
+            },
+            headers=auth_header(nurse),
+        )
         pid = resp.json()["id"]
 
         # Read the patient (triggers audit)
         client.get(f"/api/v1/patients/{pid}", headers=auth_header(nurse))
 
-        response = client.get(f"/api/v1/audit?resource_type=patient&action=read&resource_id={pid}",
-                              headers=auth_header(admin))
+        response = client.get(
+            f"/api/v1/audit?resource_type=patient&action=read&resource_id={pid}", headers=auth_header(admin)
+        )
         assert response.json()["total"] >= 1
 
     def test_patient_delete_generates_audit(self, client, db):
         admin = create_test_user(db, role="admin")
-        resp = client.post("/api/v1/patients", json={
-            "full_name": "Delete Me",
-            "date_of_birth": "1990-01-01",
-            "gender": "male",
-        }, headers=auth_header(admin))
+        resp = client.post(
+            "/api/v1/patients",
+            json={
+                "full_name": "Delete Me",
+                "date_of_birth": "1990-01-01",
+                "gender": "male",
+            },
+            headers=auth_header(admin),
+        )
         pid = resp.json()["id"]
         client.delete(f"/api/v1/patients/{pid}", headers=auth_header(admin))
 
@@ -59,22 +72,30 @@ class TestAuditLogging:
     def test_vitals_record_generates_audit(self, client, db):
         nurse = create_test_user(db, role="nurse", email="nurse@test.com")
         admin = create_test_user(db, role="admin", email="admin@test.com")
-        resp = client.post("/api/v1/patients", json={
-            "full_name": "Vitals Audit",
-            "date_of_birth": "1990-01-01",
-            "gender": "male",
-        }, headers=auth_header(nurse))
+        resp = client.post(
+            "/api/v1/patients",
+            json={
+                "full_name": "Vitals Audit",
+                "date_of_birth": "1990-01-01",
+                "gender": "male",
+            },
+            headers=auth_header(nurse),
+        )
         pid = resp.json()["id"]
 
-        client.post("/api/v1/metrics/vitals", json={
-            "patient_id": pid,
-            "heart_rate": 75,
-            "blood_pressure_systolic": 120,
-            "blood_pressure_diastolic": 80,
-            "temperature_c": 36.8,
-            "respiratory_rate": 16,
-            "oxygen_saturation": 98,
-        }, headers=auth_header(nurse))
+        client.post(
+            "/api/v1/metrics/vitals",
+            json={
+                "patient_id": pid,
+                "heart_rate": 75,
+                "blood_pressure_systolic": 120,
+                "blood_pressure_diastolic": 80,
+                "temperature_c": 36.8,
+                "respiratory_rate": 16,
+                "oxygen_saturation": 98,
+            },
+            headers=auth_header(nurse),
+        )
 
         response = client.get("/api/v1/audit?resource_type=vitals&action=create", headers=auth_header(admin))
         assert response.json()["total"] >= 1
@@ -106,11 +127,15 @@ class TestAuditEndpoint:
         nurse = create_test_user(db, role="nurse", email="filter-nurse@test.com")
         admin = create_test_user(db, role="admin", email="filter-admin@test.com")
         # Trigger an audit
-        client.post("/api/v1/patients", json={
-            "full_name": "Filter Test",
-            "date_of_birth": "1990-01-01",
-            "gender": "male",
-        }, headers=auth_header(nurse))
+        client.post(
+            "/api/v1/patients",
+            json={
+                "full_name": "Filter Test",
+                "date_of_birth": "1990-01-01",
+                "gender": "male",
+            },
+            headers=auth_header(nurse),
+        )
 
         response = client.get(f"/api/v1/audit?user_id={nurse.id}", headers=auth_header(admin))
         data = response.json()
@@ -122,11 +147,15 @@ class TestAuditEndpoint:
         headers = auth_header(admin)
         # Create several patients to generate audit entries
         for i in range(5):
-            client.post("/api/v1/patients", json={
-                "full_name": f"Paginate {i}",
-                "date_of_birth": "1990-01-01",
-                "gender": "male",
-            }, headers=headers)
+            client.post(
+                "/api/v1/patients",
+                json={
+                    "full_name": f"Paginate {i}",
+                    "date_of_birth": "1990-01-01",
+                    "gender": "male",
+                },
+                headers=headers,
+            )
 
         response = client.get("/api/v1/audit?limit=2&offset=0", headers=headers)
         data = response.json()
@@ -135,11 +164,15 @@ class TestAuditEndpoint:
 
     def test_audit_log_has_all_fields(self, client, db):
         admin = create_test_user(db, role="admin")
-        client.post("/api/v1/patients", json={
-            "full_name": "Fields Test",
-            "date_of_birth": "1990-01-01",
-            "gender": "male",
-        }, headers=auth_header(admin))
+        client.post(
+            "/api/v1/patients",
+            json={
+                "full_name": "Fields Test",
+                "date_of_birth": "1990-01-01",
+                "gender": "male",
+            },
+            headers=auth_header(admin),
+        )
 
         response = client.get("/api/v1/audit", headers=auth_header(admin))
         log = response.json()["logs"][0]

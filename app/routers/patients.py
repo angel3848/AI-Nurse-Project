@@ -32,9 +32,15 @@ def create_patient(
     db.add(patient)
     db.commit()
     db.refresh(patient)
-    log_action(db, action="create", resource_type="patient", resource_id=patient.id,
-               detail=f"Created patient: {patient.full_name}", user=current_user,
-               ip_address=http_request.client.host if http_request.client else None)
+    log_action(
+        db,
+        action="create",
+        resource_type="patient",
+        resource_id=patient.id,
+        detail=f"Created patient: {patient.full_name}",
+        user=current_user,
+        ip_address=http_request.client.host if http_request.client else None,
+    )
     return patient
 
 
@@ -67,8 +73,14 @@ def get_patient(
         if patient.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-    log_action(db, action="read", resource_type="patient", resource_id=patient_id,
-               detail=f"Viewed patient: {patient.full_name}", user=current_user)
+    log_action(
+        db,
+        action="read",
+        resource_type="patient",
+        resource_id=patient_id,
+        detail=f"Viewed patient: {patient.full_name}",
+        user=current_user,
+    )
     return patient
 
 
@@ -91,9 +103,15 @@ def update_patient(
 
     db.commit()
     db.refresh(patient)
-    log_action(db, action="update", resource_type="patient", resource_id=patient_id,
-               detail=f"Updated fields: {', '.join(update_data.keys())}", user=current_user,
-               ip_address=http_request.client.host if http_request.client else None)
+    log_action(
+        db,
+        action="update",
+        resource_type="patient",
+        resource_id=patient_id,
+        detail=f"Updated fields: {', '.join(update_data.keys())}",
+        user=current_user,
+        ip_address=http_request.client.host if http_request.client else None,
+    )
     return patient
 
 
@@ -111,9 +129,15 @@ def delete_patient(
     patient_name = patient.full_name
     db.delete(patient)
     db.commit()
-    log_action(db, action="delete", resource_type="patient", resource_id=patient_id,
-               detail=f"Deleted patient: {patient_name}", user=current_user,
-               ip_address=http_request.client.host if http_request.client else None)
+    log_action(
+        db,
+        action="delete",
+        resource_type="patient",
+        resource_id=patient_id,
+        detail=f"Deleted patient: {patient_name}",
+        user=current_user,
+        ip_address=http_request.client.host if http_request.client else None,
+    )
 
 
 @router.get("/{patient_id}/history", response_model=PatientHistoryResponse)
@@ -145,28 +169,30 @@ def get_patient_history(
             .all()
         )
         for t in triage_records:
-            records.append(HistoryRecord(
-                id=t.id,
-                record_type="triage",
-                summary=f"Level {t.priority_level} ({t.priority_label}) — {t.chief_complaint}",
-                details={
-                    "priority_level": t.priority_level,
-                    "priority_label": t.priority_label,
-                    "chief_complaint": t.chief_complaint,
-                    "symptoms": t.symptoms,
-                    "pain_scale": t.pain_scale,
-                    "flags": t.flags,
-                    "recommended_action": t.recommended_action,
-                    "vitals": {
-                        "heart_rate": t.heart_rate,
-                        "blood_pressure": f"{t.bp_systolic}/{t.bp_diastolic}",
-                        "temperature_c": t.temperature_c,
-                        "respiratory_rate": t.respiratory_rate,
-                        "oxygen_saturation": t.oxygen_saturation,
+            records.append(
+                HistoryRecord(
+                    id=t.id,
+                    record_type="triage",
+                    summary=f"Level {t.priority_level} ({t.priority_label}) — {t.chief_complaint}",
+                    details={
+                        "priority_level": t.priority_level,
+                        "priority_label": t.priority_label,
+                        "chief_complaint": t.chief_complaint,
+                        "symptoms": t.symptoms,
+                        "pain_scale": t.pain_scale,
+                        "flags": t.flags,
+                        "recommended_action": t.recommended_action,
+                        "vitals": {
+                            "heart_rate": t.heart_rate,
+                            "blood_pressure": f"{t.bp_systolic}/{t.bp_diastolic}",
+                            "temperature_c": t.temperature_c,
+                            "respiratory_rate": t.respiratory_rate,
+                            "oxygen_saturation": t.oxygen_saturation,
+                        },
                     },
-                },
-                created_at=t.created_at,
-            ))
+                    created_at=t.created_at,
+                )
+            )
 
     if record_type is None or record_type == "symptom_check":
         symptom_records = (
@@ -178,20 +204,22 @@ def get_patient_history(
         for s in symptom_records:
             conditions = s.conditions_found
             top_condition = conditions[0]["condition"] if conditions else "No match"
-            records.append(HistoryRecord(
-                id=s.id,
-                record_type="symptom_check",
-                summary=f"{s.urgency.capitalize()} urgency — {top_condition}",
-                details={
-                    "symptoms": s.symptoms,
-                    "duration_days": s.duration_days,
-                    "severity": s.severity,
-                    "urgency": s.urgency,
-                    "conditions_found": conditions,
-                    "recommended_action": s.recommended_action,
-                },
-                created_at=s.created_at,
-            ))
+            records.append(
+                HistoryRecord(
+                    id=s.id,
+                    record_type="symptom_check",
+                    summary=f"{s.urgency.capitalize()} urgency — {top_condition}",
+                    details={
+                        "symptoms": s.symptoms,
+                        "duration_days": s.duration_days,
+                        "severity": s.severity,
+                        "urgency": s.urgency,
+                        "conditions_found": conditions,
+                        "recommended_action": s.recommended_action,
+                    },
+                    created_at=s.created_at,
+                )
+            )
 
     if record_type is None or record_type == "vitals":
         vitals_records = (
@@ -201,26 +229,28 @@ def get_patient_history(
             .all()
         )
         for v in vitals_records:
-            records.append(HistoryRecord(
-                id=v.id,
-                record_type="vitals",
-                summary=f"Vitals — HR {v.heart_rate}, BP {v.bp_systolic}/{v.bp_diastolic}, SpO2 {v.oxygen_saturation}%",
-                details={
-                    "heart_rate": v.heart_rate,
-                    "blood_pressure": f"{v.bp_systolic}/{v.bp_diastolic}",
-                    "temperature_c": v.temperature_c,
-                    "respiratory_rate": v.respiratory_rate,
-                    "oxygen_saturation": v.oxygen_saturation,
-                    "blood_glucose_mg_dl": v.blood_glucose_mg_dl,
-                    "notes": v.notes,
-                    "recorded_by": v.recorded_by,
-                },
-                created_at=v.recorded_at,
-            ))
+            records.append(
+                HistoryRecord(
+                    id=v.id,
+                    record_type="vitals",
+                    summary=f"Vitals — HR {v.heart_rate}, BP {v.bp_systolic}/{v.bp_diastolic}, SpO2 {v.oxygen_saturation}%",
+                    details={
+                        "heart_rate": v.heart_rate,
+                        "blood_pressure": f"{v.bp_systolic}/{v.bp_diastolic}",
+                        "temperature_c": v.temperature_c,
+                        "respiratory_rate": v.respiratory_rate,
+                        "oxygen_saturation": v.oxygen_saturation,
+                        "blood_glucose_mg_dl": v.blood_glucose_mg_dl,
+                        "notes": v.notes,
+                        "recorded_by": v.recorded_by,
+                    },
+                    created_at=v.recorded_at,
+                )
+            )
 
     records.sort(key=lambda r: r.created_at, reverse=True)
     total = len(records)
-    records = records[offset:offset + limit]
+    records = records[offset : offset + limit]
 
     return PatientHistoryResponse(
         patient_id=patient_id,

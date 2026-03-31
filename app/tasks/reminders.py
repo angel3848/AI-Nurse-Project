@@ -105,7 +105,12 @@ def send_reminder_notification(
         }
         logger.info(
             "Medication reminder %s: %s %s for patient %s (email=%s, delivered=%s)",
-            reminder_id, medication_name, dosage, patient_id, to_email, delivered,
+            reminder_id,
+            medication_name,
+            dosage,
+            patient_id,
+            to_email,
+            delivered,
         )
         return notification
 

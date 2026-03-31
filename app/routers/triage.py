@@ -74,20 +74,24 @@ def get_triage_queue(
     now = datetime.now(timezone.utc)
     queue = []
     for record, patient_name in records:
-        created = record.created_at.replace(tzinfo=timezone.utc) if record.created_at.tzinfo is None else record.created_at
+        created = (
+            record.created_at.replace(tzinfo=timezone.utc) if record.created_at.tzinfo is None else record.created_at
+        )
         wait_minutes = int((now - created).total_seconds() / 60)
         color_map = {1: "red", 2: "orange", 3: "yellow", 4: "green", 5: "blue"}
-        queue.append(TriageQueueItem(
-            id=record.id,
-            patient_id=record.patient_id,
-            patient_name=patient_name,
-            priority_level=record.priority_level,
-            priority_label=record.priority_label,
-            priority_color=color_map.get(record.priority_level, "blue"),
-            chief_complaint=record.chief_complaint,
-            created_at=record.created_at,
-            wait_time_minutes=wait_minutes,
-        ))
+        queue.append(
+            TriageQueueItem(
+                id=record.id,
+                patient_id=record.patient_id,
+                patient_name=patient_name,
+                priority_level=record.priority_level,
+                priority_label=record.priority_label,
+                priority_color=color_map.get(record.priority_level, "blue"),
+                chief_complaint=record.chief_complaint,
+                created_at=record.created_at,
+                wait_time_minutes=wait_minutes,
+            )
+        )
 
     return TriageQueueResponse(queue=queue, total=len(queue))
 

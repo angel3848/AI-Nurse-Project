@@ -35,7 +35,7 @@ settings = Settings()
 if settings.app_env == "production" and not settings.jwt_secret_key:
     raise RuntimeError(
         "JWT_SECRET_KEY must be set in production. "
-        "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
     )
 
 # In development, auto-generate a random secret if none provided

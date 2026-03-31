@@ -35,6 +35,7 @@ def db():
 @pytest.fixture
 def client(db):
     """Test client with overridden DB dependency."""
+
     def override_get_db():
         try:
             yield db

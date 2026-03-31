@@ -3,11 +3,15 @@ from tests.conftest import auth_header, create_test_user
 
 def create_patient(client, headers, name="John Doe") -> str:
     """Helper to create a patient and return their ID."""
-    response = client.post("/api/v1/patients", json={
-        "full_name": name,
-        "date_of_birth": "1990-05-15",
-        "gender": "male",
-    }, headers=headers)
+    response = client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": name,
+            "date_of_birth": "1990-05-15",
+            "gender": "male",
+        },
+        headers=headers,
+    )
     return response.json()["id"]
 
 
@@ -44,10 +48,17 @@ class TestCreateReminder:
         nurse = create_test_user(db, role="nurse")
         headers = auth_header(nurse)
         pid = create_patient(client, headers)
-        response = client.post("/api/v1/medications/reminders", json=make_reminder(pid, {
-            "frequency": "once_daily",
-            "times": ["09:00:00"],
-        }), headers=headers)
+        response = client.post(
+            "/api/v1/medications/reminders",
+            json=make_reminder(
+                pid,
+                {
+                    "frequency": "once_daily",
+                    "times": ["09:00:00"],
+                },
+            ),
+            headers=headers,
+        )
         assert response.status_code == 201
         assert response.json()["frequency"] == "once_daily"
 
@@ -55,19 +66,33 @@ class TestCreateReminder:
         nurse = create_test_user(db, role="nurse")
         headers = auth_header(nurse)
         pid = create_patient(client, headers)
-        response = client.post("/api/v1/medications/reminders", json=make_reminder(pid, {
-            "start_date": "2026-06-24",
-            "end_date": "2026-03-24",
-        }), headers=headers)
+        response = client.post(
+            "/api/v1/medications/reminders",
+            json=make_reminder(
+                pid,
+                {
+                    "start_date": "2026-06-24",
+                    "end_date": "2026-03-24",
+                },
+            ),
+            headers=headers,
+        )
         assert response.status_code == 400
 
     def test_invalid_frequency(self, client, db):
         nurse = create_test_user(db, role="nurse")
         headers = auth_header(nurse)
         pid = create_patient(client, headers)
-        response = client.post("/api/v1/medications/reminders", json=make_reminder(pid, {
-            "frequency": "every_5_minutes",
-        }), headers=headers)
+        response = client.post(
+            "/api/v1/medications/reminders",
+            json=make_reminder(
+                pid,
+                {
+                    "frequency": "every_5_minutes",
+                },
+            ),
+            headers=headers,
+        )
         assert response.status_code == 422
 
     def test_missing_medication_name(self, client, db):
@@ -118,12 +143,19 @@ class TestListPatientMedications:
         headers = auth_header(nurse)
         pid = create_patient(client, headers)
         client.post("/api/v1/medications/reminders", json=make_reminder(pid), headers=headers)
-        client.post("/api/v1/medications/reminders", json=make_reminder(pid, {
-            "medication_name": "Lisinopril",
-            "dosage": "10mg",
-            "frequency": "once_daily",
-            "times": ["08:00:00"],
-        }), headers=headers)
+        client.post(
+            "/api/v1/medications/reminders",
+            json=make_reminder(
+                pid,
+                {
+                    "medication_name": "Lisinopril",
+                    "dosage": "10mg",
+                    "frequency": "once_daily",
+                    "times": ["08:00:00"],
+                },
+            ),
+            headers=headers,
+        )
         response = client.get(f"/api/v1/medications/patient/{pid}", headers=headers)
         data = response.json()
         assert data["total"] == 2

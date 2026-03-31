@@ -125,7 +125,10 @@ def update_user_role(
     db.refresh(user)
 
     log_action(
-        db, action="update", resource_type="user", resource_id=user_id,
+        db,
+        action="update",
+        resource_type="user",
+        resource_id=user_id,
         detail=f"Role changed: {old_role} -> {request.role} for {user.email}",
         user=current_user,
         ip_address=http_request.client.host if http_request.client else None,
@@ -154,7 +157,10 @@ def deactivate_user(
     db.refresh(user)
 
     log_action(
-        db, action="deactivate", resource_type="user", resource_id=user_id,
+        db,
+        action="deactivate",
+        resource_type="user",
+        resource_id=user_id,
         detail=f"Deactivated user: {user.email}",
         user=current_user,
         ip_address=http_request.client.host if http_request.client else None,
@@ -180,7 +186,10 @@ def activate_user(
     db.refresh(user)
 
     log_action(
-        db, action="activate", resource_type="user", resource_id=user_id,
+        db,
+        action="activate",
+        resource_type="user",
+        resource_id=user_id,
         detail=f"Activated user: {user.email}",
         user=current_user,
         ip_address=http_request.client.host if http_request.client else None,

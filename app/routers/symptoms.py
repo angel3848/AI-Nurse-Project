@@ -52,11 +52,13 @@ def list_conditions(
     for required_symptoms, name, description, cat in CONDITION_DATABASE:
         if category and cat != category:
             continue
-        conditions.append(ConditionInfo(
-            condition=name,
-            category=cat,
-            description=description,
-            required_symptoms=sorted(required_symptoms),
-        ))
+        conditions.append(
+            ConditionInfo(
+                condition=name,
+                category=cat,
+                description=description,
+                required_symptoms=sorted(required_symptoms),
+            )
+        )
 
     return ConditionsListResponse(conditions=conditions, total=len(conditions))

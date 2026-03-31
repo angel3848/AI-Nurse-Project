@@ -11,12 +11,20 @@ PRIORITY_LABELS = {
 HIGH_RISK_SYMPTOMS = {
     1: {"cardiac_arrest", "respiratory_arrest", "unresponsive", "severe_hemorrhage"},
     2: {
-        "chest_pain", "stroke_symptoms", "severe_allergic_reaction",
-        "difficulty_breathing", "suicidal_ideation", "seizure",
+        "chest_pain",
+        "stroke_symptoms",
+        "severe_allergic_reaction",
+        "difficulty_breathing",
+        "suicidal_ideation",
+        "seizure",
     },
     3: {
-        "abdominal_pain", "moderate_bleeding", "high_fever",
-        "fracture", "dehydration", "acute_mental_health",
+        "abdominal_pain",
+        "moderate_bleeding",
+        "high_fever",
+        "fracture",
+        "dehydration",
+        "acute_mental_health",
     },
 }
 

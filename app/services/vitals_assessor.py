@@ -4,10 +4,34 @@ from app.schemas.metrics import VitalReading
 def assess_reading(name: str, value: float | int) -> VitalReading:
     """Assess a single vital sign reading and return its status."""
     ranges = {
-        "heart_rate": [(60, 100, "normal"), (50, 60, "low"), (100, 130, "elevated"), (0, 50, "critical_low"), (130, 300, "critical_high")],
-        "bp_systolic": [(90, 120, "normal"), (120, 140, "elevated"), (140, 180, "high"), (180, 350, "critical_high"), (0, 90, "low")],
-        "bp_diastolic": [(60, 80, "normal"), (80, 90, "elevated"), (90, 120, "high"), (120, 250, "critical_high"), (0, 60, "low")],
-        "temperature_c": [(36.1, 37.2, "normal"), (37.2, 38.0, "low_grade_fever"), (38.0, 39.0, "fever"), (39.0, 45.0, "high_fever"), (25.0, 36.1, "hypothermia")],
+        "heart_rate": [
+            (60, 100, "normal"),
+            (50, 60, "low"),
+            (100, 130, "elevated"),
+            (0, 50, "critical_low"),
+            (130, 300, "critical_high"),
+        ],
+        "bp_systolic": [
+            (90, 120, "normal"),
+            (120, 140, "elevated"),
+            (140, 180, "high"),
+            (180, 350, "critical_high"),
+            (0, 90, "low"),
+        ],
+        "bp_diastolic": [
+            (60, 80, "normal"),
+            (80, 90, "elevated"),
+            (90, 120, "high"),
+            (120, 250, "critical_high"),
+            (0, 60, "low"),
+        ],
+        "temperature_c": [
+            (36.1, 37.2, "normal"),
+            (37.2, 38.0, "low_grade_fever"),
+            (38.0, 39.0, "fever"),
+            (39.0, 45.0, "high_fever"),
+            (25.0, 36.1, "hypothermia"),
+        ],
         "respiratory_rate": [(12, 20, "normal"), (20, 30, "elevated"), (30, 80, "critical_high"), (0, 12, "low")],
         "oxygen_saturation": [(95, 100, "normal"), (90, 95, "low"), (0, 90, "critical_low")],
         "blood_glucose_mg_dl": [(70, 100, "normal"), (100, 126, "elevated"), (126, 1000, "high"), (0, 70, "low")],
