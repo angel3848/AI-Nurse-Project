@@ -3,7 +3,7 @@ from datetime import date, time
 from sqlalchemy.orm import Session
 
 from app.models.medication import MedicationReminderModel
-from app.schemas.medication import MedicationReminderCreate, MedicationReminderResponse
+from app.schemas.medication import MedicationReminderCreate, MedicationReminderResponse, MedicationReminderUpdate
 
 
 def _model_to_response(model: MedicationReminderModel) -> MedicationReminderResponse:
@@ -52,6 +52,29 @@ def get_reminder(db: Session, reminder_id: str) -> MedicationReminderResponse | 
 def get_patient_medications(db: Session, patient_id: str) -> list[MedicationReminderResponse]:
     models = db.query(MedicationReminderModel).filter(MedicationReminderModel.patient_id == patient_id).all()
     return [_model_to_response(m) for m in models]
+
+
+def update_reminder(
+    db: Session, reminder_id: str, update: MedicationReminderUpdate
+) -> MedicationReminderResponse | None:
+    model = (
+        db.query(MedicationReminderModel)
+        .filter(MedicationReminderModel.id == reminder_id, MedicationReminderModel.status == "active")
+        .first()
+    )
+    if model is None:
+        return None
+
+    update_data = update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if field == "times":
+            setattr(model, field, [t.isoformat() for t in value])
+        else:
+            setattr(model, field, value)
+
+    db.commit()
+    db.refresh(model)
+    return _model_to_response(model)
 
 
 def cancel_reminder(db: Session, reminder_id: str) -> MedicationReminderResponse | None:

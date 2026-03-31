@@ -19,6 +19,8 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+    password_reset_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
+    reset_token_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     patient: Mapped["Patient"] = relationship(back_populates="user", foreign_keys="Patient.user_id", uselist=False)

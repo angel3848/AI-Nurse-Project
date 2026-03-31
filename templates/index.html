@@ -29,6 +29,7 @@
         <button class="nav-tab staff-only" data-screen="triage" aria-label="Triage assessment">Triage</button>
         <button class="nav-tab staff-only" data-screen="vitals" aria-label="Record vitals">Vitals</button>
         <button class="nav-tab staff-only" data-screen="camera" aria-label="Medical camera">Camera</button>
+        <button class="nav-tab staff-only" data-screen="patients" aria-label="Patient management">Patients</button>
     </nav>
 
     <!-- Login -->
@@ -262,6 +263,78 @@
             <div id="photo-gallery" class="photo-gallery hidden">
                 <h4 style="margin:16px 0 8px;font-size:15px">Captured Photos</h4>
             </div>
+        </div>
+    </div>
+
+    <!-- Patient List -->
+    <div class="screen hidden" id="screen-patients">
+        <div class="content">
+            <h3 class="section-title">Patients</h3>
+            <div class="patient-toolbar">
+                <input type="text" id="patient-search" class="patient-search-input" placeholder="Search patients by name..." aria-label="Search patients">
+                <button class="btn btn-primary btn-small" id="btn-create-patient">+ New Patient</button>
+            </div>
+            <div id="patient-list" class="patient-list">
+                <div class="loading">Loading patients...</div>
+            </div>
+            <div class="pagination" id="patient-pagination"></div>
+        </div>
+    </div>
+
+    <!-- Patient Detail -->
+    <div class="screen hidden" id="screen-patient-detail">
+        <div class="content">
+            <button class="btn btn-secondary btn-small" id="btn-back-patients" style="margin-bottom:12px">Back to Patients</button>
+            <div id="patient-detail-content">
+                <div class="loading">Loading patient details...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Patient Modal Overlay -->
+    <div class="modal-overlay hidden" id="modal-create-patient" role="dialog" aria-modal="true" aria-label="Create patient form">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Create Patient</h3>
+                <button class="modal-close" id="btn-close-create-patient" aria-label="Close">&times;</button>
+            </div>
+            <form id="form-create-patient" aria-label="Create patient form">
+                <div class="form-group">
+                    <label for="cp-name">Full Name *</label>
+                    <input type="text" id="cp-name" required placeholder="John Doe" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="cp-dob">Date of Birth *</label>
+                    <input type="date" id="cp-dob" required>
+                </div>
+                <div class="form-group">
+                    <label for="cp-gender">Gender *</label>
+                    <select id="cp-gender" required>
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cp-blood">Blood Type</label>
+                    <input type="text" id="cp-blood" placeholder="e.g. A+" maxlength="5">
+                </div>
+                <div class="form-group">
+                    <label for="cp-allergies">Allergies</label>
+                    <textarea id="cp-allergies" rows="2" placeholder="e.g. Penicillin, Peanuts" maxlength="1000"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="cp-ec-name">Emergency Contact Name</label>
+                    <input type="text" id="cp-ec-name" placeholder="Jane Doe" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="cp-ec-phone">Emergency Contact Phone</label>
+                    <input type="tel" id="cp-ec-phone" placeholder="+1 555-123-4567" maxlength="20">
+                </div>
+                <button type="submit" class="btn btn-primary">Create Patient</button>
+                <button type="button" class="btn btn-secondary" id="btn-cancel-create-patient" style="margin-top:8px">Cancel</button>
+            </form>
         </div>
     </div>
 

@@ -9,6 +9,7 @@ from app.schemas.patient import (
     PatientHistoryResponse,
     PatientListResponse,
     PatientResponse,
+    PatientSelfCreate,
     PatientUpdate,
 )
 from app.services.audit_logger import log_action
@@ -46,14 +47,56 @@ def create_patient(
 def list_patients(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    search: str | None = Query(None, max_length=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("nurse", "doctor", "admin")),
 ) -> dict:
-    """List all patients with pagination. Requires nurse, doctor, or admin role."""
+    """List all patients with pagination and optional search. Requires nurse, doctor, or admin role."""
     query = db.query(Patient).filter(Patient.is_deleted == False)  # noqa: E712
+    if search:
+        query = query.filter(Patient.full_name.ilike(f"%{search}%"))
     total = query.count()
-    patients = query.offset(offset).limit(limit).all()
+    patients = query.order_by(Patient.full_name).offset(offset).limit(limit).all()
     return {"patients": patients, "total": total}
+
+
+@router.post("/me", response_model=PatientResponse, status_code=201)
+def self_register_patient(
+    body: PatientSelfCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Patient:
+    """Allow a patient-role user to create their own patient record."""
+    if current_user.role != "patient":
+        raise HTTPException(status_code=403, detail="Only patient users can self-register")
+
+    # Check if patient record already exists for this user
+    existing = (
+        db.query(Patient)
+        .filter(
+            Patient.user_id == current_user.id,
+            Patient.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="Patient record already exists")
+
+    patient = Patient(**body.model_dump(), user_id=current_user.id)
+    db.add(patient)
+    db.commit()
+    db.refresh(patient)
+    log_action(
+        db,
+        action="create",
+        resource_type="patient",
+        resource_id=patient.id,
+        detail=f"Patient self-registered: {patient.full_name}",
+        user=current_user,
+        ip_address=request.client.host if request.client else None,
+    )
+    return patient
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)

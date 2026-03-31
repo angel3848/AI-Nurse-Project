@@ -8,12 +8,14 @@ from app.schemas.medication import (
     MedicationListResponse,
     MedicationReminderCreate,
     MedicationReminderResponse,
+    MedicationReminderUpdate,
 )
 from app.services.medication_scheduler import (
     cancel_reminder,
     create_reminder,
     get_patient_medications,
     get_reminder,
+    update_reminder,
 )
 from app.utils.auth import get_current_user, require_role
 
@@ -43,6 +45,20 @@ def get_medication_reminder(
     reminder = get_reminder(db, reminder_id)
     if reminder is None:
         raise HTTPException(status_code=404, detail="Reminder not found")
+    return reminder
+
+
+@router.put("/reminders/{reminder_id}", response_model=MedicationReminderResponse)
+def update_medication_reminder(
+    reminder_id: str,
+    request: MedicationReminderUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("nurse", "doctor")),
+) -> MedicationReminderResponse:
+    """Update an active medication reminder. Requires nurse or doctor role."""
+    reminder = update_reminder(db, reminder_id, request)
+    if reminder is None:
+        raise HTTPException(status_code=404, detail="Active reminder not found")
     return reminder
 
 

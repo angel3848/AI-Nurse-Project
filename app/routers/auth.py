@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -9,6 +10,8 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
     DeactivateResponse,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
     RoleUpdate,
     TokenResponse,
     UserListResponse,
@@ -107,6 +110,40 @@ def logout_user(request: Request, response: Response) -> dict:
 def get_me(current_user: User = Depends(get_current_user)) -> User:
     """Get the current authenticated user's profile."""
     return current_user
+
+
+@router.post("/forgot-password")
+@limiter.limit("5/minute")
+def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    """Request a password reset token. Always returns 200 to avoid revealing if the email exists."""
+    user = db.query(User).filter(User.email == body.email).first()
+    if user is not None:
+        token = secrets.token_urlsafe()
+        user.password_reset_token = token
+        user.reset_token_expires = datetime.now(timezone.utc) + timedelta(minutes=30)
+        db.commit()
+    return {"detail": "If that email exists, a reset link has been sent"}
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    """Reset a password using a valid reset token."""
+    user = (
+        db.query(User)
+        .filter(
+            User.password_reset_token == body.token,
+            User.reset_token_expires.isnot(None),
+        )
+        .first()
+    )
+    if user is None or user.reset_token_expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    user.hashed_password = hash_password(body.new_password)
+    user.password_reset_token = None
+    user.reset_token_expires = None
+    db.commit()
+    return {"detail": "Password has been reset successfully"}
 
 
 # --- Admin user management ---

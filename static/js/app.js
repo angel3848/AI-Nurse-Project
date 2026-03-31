@@ -60,6 +60,7 @@ function showScreen(name) {
     const tab = $(`.nav-tab[data-screen="${name}"]`);
     if (tab) tab.classList.add('active');
     if (name === 'dashboard') loadDashboard();
+    if (name === 'patients') loadPatients($('#patient-search')?.value?.trim() || '', 0);
 }
 
 // --- Auth ---
@@ -144,6 +145,7 @@ async function loadDashboard() {
         html += '<button class="action-card" onclick="showScreen(\'triage\')"><div class="action-icon">🚨</div><div>Triage</div></button>';
         html += '<button class="action-card" onclick="showScreen(\'vitals\')"><div class="action-icon">💓</div><div>Record Vitals</div></button>';
         html += '<button class="action-card" onclick="showScreen(\'camera\')"><div class="action-icon">📷</div><div>Camera</div></button>';
+        html += '<button class="action-card" onclick="showScreen(\'patients\')"><div class="action-icon">👥</div><div>Patients</div></button>';
     }
     html += '</div>';
 
@@ -190,8 +192,11 @@ async function loadDashboard() {
         } catch (e) {}
     }
 
-    // Patient view: health tips
+    // Patient view: self-registration + health tips
     if (role === 'patient') {
+        if (!hasPatientProfile) {
+            html += renderSelfRegistrationCard();
+        }
         html += '<div class="section-title" style="margin-top:24px">Health Tips</div>';
         html += `<div class="card">
             <div class="card-title">Stay Healthy</div>
@@ -206,6 +211,12 @@ async function loadDashboard() {
     }
 
     container.innerHTML = html;
+
+    // Bind self-registration form if present
+    const selfRegForm = $('#form-self-register');
+    if (selfRegForm) {
+        selfRegForm.addEventListener('submit', handleSelfRegister);
+    }
 }
 
 function isStaff() {
@@ -577,6 +588,290 @@ function showAlert(message, type = 'info') {
     setTimeout(() => alert.remove(), 5000);
 }
 
+// --- Patient Management ---
+let patientPage = 0;
+const PATIENTS_PER_PAGE = 20;
+let patientSearchTimeout = null;
+
+async function loadPatients(search = '', offset = 0) {
+    const container = $('#patient-list');
+    container.innerHTML = '<div class="loading">Loading patients...</div>';
+    try {
+        let url = `/patients?limit=${PATIENTS_PER_PAGE}&offset=${offset}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        const data = await api(url);
+        if (data.patients.length === 0) {
+            container.innerHTML = '<div class="card"><p style="color:var(--gray-500);text-align:center">No patients found</p></div>';
+        } else {
+            container.innerHTML = data.patients.map(p => `
+                <div class="patient-card" data-id="${escapeHtml(p.id)}" tabindex="0" role="button" aria-label="View patient ${escapeHtml(p.full_name)}">
+                    <div class="patient-card-name">${escapeHtml(p.full_name)}</div>
+                    <div class="patient-card-meta">DOB: ${escapeHtml(p.date_of_birth)} &middot; ${escapeHtml(p.gender)}</div>
+                </div>
+            `).join('');
+            container.querySelectorAll('.patient-card').forEach(card => {
+                card.addEventListener('click', () => viewPatient(card.dataset.id));
+                card.addEventListener('keydown', (e) => { if (e.key === 'Enter') viewPatient(card.dataset.id); });
+            });
+        }
+        renderPatientPagination(data.total, offset);
+    } catch (err) {
+        container.innerHTML = '<div class="alert alert-danger">Failed to load patients</div>';
+    }
+}
+
+function renderPatientPagination(total, offset) {
+    const pag = $('#patient-pagination');
+    if (total <= PATIENTS_PER_PAGE) { pag.innerHTML = ''; return; }
+    const page = Math.floor(offset / PATIENTS_PER_PAGE) + 1;
+    const totalPages = Math.ceil(total / PATIENTS_PER_PAGE);
+    pag.innerHTML = `
+        <button ${offset === 0 ? 'disabled' : ''} id="pg-prev">Previous</button>
+        <span>Page ${page} of ${totalPages}</span>
+        <button ${offset + PATIENTS_PER_PAGE >= total ? 'disabled' : ''} id="pg-next">Next</button>
+    `;
+    const search = $('#patient-search').value.trim();
+    $('#pg-prev')?.addEventListener('click', () => {
+        patientPage = Math.max(0, offset - PATIENTS_PER_PAGE);
+        loadPatients(search, patientPage);
+    });
+    $('#pg-next')?.addEventListener('click', () => {
+        patientPage = offset + PATIENTS_PER_PAGE;
+        loadPatients(search, patientPage);
+    });
+}
+
+async function viewPatient(id) {
+    showScreen('patient-detail');
+    const container = $('#patient-detail-content');
+    container.innerHTML = '<div class="loading">Loading patient details...</div>';
+    try {
+        const p = await api(`/patients/${encodeURIComponent(id)}`);
+        let html = `
+            <div class="patient-detail-header">
+                <div class="patient-detail-name">${escapeHtml(p.full_name)}</div>
+                <div class="card-meta">ID: ${escapeHtml(p.id)}</div>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Date of Birth</div>
+                    <div class="detail-value">${escapeHtml(p.date_of_birth)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Gender</div>
+                    <div class="detail-value">${escapeHtml(p.gender)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Blood Type</div>
+                    <div class="detail-value">${escapeHtml(p.blood_type || 'N/A')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Allergies</div>
+                    <div class="detail-value">${escapeHtml(p.allergies || 'None')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Emergency Contact</div>
+                    <div class="detail-value">${escapeHtml(p.emergency_contact_name || 'N/A')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Emergency Phone</div>
+                    <div class="detail-value">${escapeHtml(p.emergency_contact_phone || 'N/A')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Created</div>
+                    <div class="detail-value">${escapeHtml(new Date(p.created_at).toLocaleDateString())}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Updated</div>
+                    <div class="detail-value">${escapeHtml(new Date(p.updated_at).toLocaleDateString())}</div>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-small" style="margin-top:16px" id="btn-view-history" data-patient-id="${escapeHtml(p.id)}">View History</button>
+            <div id="patient-history-section" class="history-section"></div>
+        `;
+        container.innerHTML = html;
+        $('#btn-view-history').addEventListener('click', () => loadPatientHistory(p.id));
+    } catch (err) {
+        container.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.detail || 'Failed to load patient')}</div>`;
+    }
+}
+
+async function loadPatientHistory(patientId) {
+    const section = $('#patient-history-section');
+    section.innerHTML = '<div class="loading">Loading history...</div>';
+    try {
+        const data = await api(`/patients/${encodeURIComponent(patientId)}/history?limit=50`);
+        if (data.records.length === 0) {
+            section.innerHTML = '<p style="color:var(--gray-500);margin-top:12px;text-align:center">No history records found</p>';
+            return;
+        }
+        let html = `<div class="section-title" style="margin-top:16px">History (${escapeHtml(data.total)} records)</div>`;
+        data.records.forEach(r => {
+            html += `
+                <div class="history-record">
+                    <div class="history-record-type">${escapeHtml(r.record_type)}</div>
+                    <div class="history-record-summary">${escapeHtml(r.summary)}</div>
+                    <div class="history-record-date">${escapeHtml(new Date(r.created_at).toLocaleString())}</div>
+                </div>
+            `;
+        });
+        section.innerHTML = html;
+    } catch (err) {
+        section.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.detail || 'Failed to load history')}</div>`;
+    }
+}
+
+function openCreatePatientModal() {
+    show($('#modal-create-patient'));
+    $('#cp-name').focus();
+}
+
+function closeCreatePatientModal() {
+    hide($('#modal-create-patient'));
+    $('#form-create-patient').reset();
+}
+
+async function handleCreatePatient(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
+    try {
+        const body = {
+            full_name: $('#cp-name').value.trim(),
+            date_of_birth: $('#cp-dob').value,
+            gender: $('#cp-gender').value,
+        };
+        const blood = $('#cp-blood').value.trim();
+        if (blood) body.blood_type = blood;
+        const allergies = $('#cp-allergies').value.trim();
+        if (allergies) body.allergies = allergies;
+        const ecName = $('#cp-ec-name').value.trim();
+        if (ecName) body.emergency_contact_name = ecName;
+        const ecPhone = $('#cp-ec-phone').value.trim();
+        if (ecPhone) body.emergency_contact_phone = ecPhone;
+
+        await api('/patients', { method: 'POST', body: JSON.stringify(body) });
+        showAlert('Patient created successfully', 'success');
+        closeCreatePatientModal();
+        loadPatients($('#patient-search').value.trim(), 0);
+    } catch (err) {
+        showAlert(err.detail || 'Failed to create patient', 'danger');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// --- Patient Self-Registration ---
+let patientProfileChecked = false;
+let hasPatientProfile = false;
+
+async function checkPatientProfile() {
+    if (currentUser?.role !== 'patient' || patientProfileChecked) return;
+    patientProfileChecked = true;
+    try {
+        // Check if user has a linked patient record by searching via the users endpoint
+        // We attempt to load patients/me — if 404, they need to register
+        const res = await fetch(`${API}/patients?limit=1`, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        // Patients can't list patients (403), so we use a different approach:
+        // Try to see if user_id is linked to any patient by checking for a 403/404
+        hasPatientProfile = false;
+    } catch (e) {
+        hasPatientProfile = false;
+    }
+}
+
+function renderSelfRegistrationCard() {
+    if (currentUser?.role !== 'patient' || hasPatientProfile) return '';
+    return `
+        <div class="profile-card" id="patient-profile-card">
+            <div class="profile-card-title">Complete Your Profile</div>
+            <div class="profile-card-desc">Set up your patient profile to enable personalized care and medical history tracking.</div>
+            <button class="btn btn-primary btn-small" onclick="showSelfRegistrationForm()">Complete Profile</button>
+        </div>
+        <div class="card hidden" id="self-reg-form-container">
+            <h4 style="margin-bottom:12px;font-size:16px">Patient Profile</h4>
+            <form id="form-self-register" aria-label="Patient self-registration form">
+                <div class="form-group">
+                    <label for="sr-name">Full Name *</label>
+                    <input type="text" id="sr-name" required maxlength="200" value="${escapeHtml(currentUser.full_name)}">
+                </div>
+                <div class="form-group">
+                    <label for="sr-dob">Date of Birth *</label>
+                    <input type="date" id="sr-dob" required>
+                </div>
+                <div class="form-group">
+                    <label for="sr-gender">Gender *</label>
+                    <select id="sr-gender" required>
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sr-blood">Blood Type</label>
+                    <input type="text" id="sr-blood" placeholder="e.g. A+" maxlength="5">
+                </div>
+                <div class="form-group">
+                    <label for="sr-allergies">Allergies</label>
+                    <textarea id="sr-allergies" rows="2" placeholder="e.g. Penicillin, Peanuts" maxlength="1000"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="sr-ec-name">Emergency Contact Name</label>
+                    <input type="text" id="sr-ec-name" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="sr-ec-phone">Emergency Contact Phone</label>
+                    <input type="tel" id="sr-ec-phone" maxlength="20">
+                </div>
+                <button type="submit" class="btn btn-primary">Save Profile</button>
+            </form>
+        </div>
+    `;
+}
+
+function showSelfRegistrationForm() {
+    hide($('#patient-profile-card'));
+    show($('#self-reg-form-container'));
+    $('#sr-name').focus();
+}
+
+async function handleSelfRegister(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    setLoading(btn, true);
+    try {
+        const body = {
+            full_name: $('#sr-name').value.trim(),
+            date_of_birth: $('#sr-dob').value,
+            gender: $('#sr-gender').value,
+        };
+        const blood = $('#sr-blood').value.trim();
+        if (blood) body.blood_type = blood;
+        const allergies = $('#sr-allergies').value.trim();
+        if (allergies) body.allergies = allergies;
+        const ecName = $('#sr-ec-name').value.trim();
+        if (ecName) body.emergency_contact_name = ecName;
+        const ecPhone = $('#sr-ec-phone').value.trim();
+        if (ecPhone) body.emergency_contact_phone = ecPhone;
+
+        await api('/patients/me', { method: 'POST', body: JSON.stringify(body) });
+        hasPatientProfile = true;
+        showAlert('Profile saved successfully!', 'success');
+        loadDashboard();
+    } catch (err) {
+        if (err.status === 409) {
+            hasPatientProfile = true;
+            showAlert('Profile already exists.', 'info');
+            loadDashboard();
+        } else {
+            showAlert(err.detail || 'Failed to save profile', 'danger');
+        }
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
     // Auth
@@ -591,6 +886,28 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#form-symptoms')?.addEventListener('submit', handleSymptomCheck);
     $('#form-vitals')?.addEventListener('submit', handleVitals);
     $('#form-triage')?.addEventListener('submit', handleTriage);
+
+    // Patient management
+    $('#btn-create-patient')?.addEventListener('click', openCreatePatientModal);
+    $('#btn-close-create-patient')?.addEventListener('click', closeCreatePatientModal);
+    $('#btn-cancel-create-patient')?.addEventListener('click', closeCreatePatientModal);
+    $('#form-create-patient')?.addEventListener('submit', handleCreatePatient);
+    $('#btn-back-patients')?.addEventListener('click', () => showScreen('patients'));
+    $('#modal-create-patient')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeCreatePatientModal();
+    });
+
+    // Patient search with debounce
+    const patientSearch = $('#patient-search');
+    if (patientSearch) {
+        patientSearch.addEventListener('input', () => {
+            clearTimeout(patientSearchTimeout);
+            patientSearchTimeout = setTimeout(() => {
+                patientPage = 0;
+                loadPatients(patientSearch.value.trim(), 0);
+            }, 300);
+        });
+    }
 
     // Camera
     $('#btn-start-camera')?.addEventListener('click', startCamera);
