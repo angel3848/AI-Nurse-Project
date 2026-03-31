@@ -4,9 +4,11 @@
 
 The AI Nurse triage system uses a 5-level priority scale based on the Australasian Triage Scale (ATS) and Canadian Triage and Acuity Scale (CTAS). It evaluates patient symptoms, vitals, and clinical context to assign an appropriate priority level.
 
+When a triage assessment is submitted with a `patient_id`, the record is persisted and a real-time WebSocket notification (`queue_updated` event) is broadcast to all connected clients via `/ws/triage-queue`.
+
 ## Priority Levels
 
-### Level 1 — Resuscitation (Red)
+### Level 1 -- Resuscitation (Red)
 **Target response time:** Immediate (0 minutes)
 
 Life-threatening conditions requiring immediate intervention.
@@ -26,7 +28,7 @@ Life-threatening conditions requiring immediate intervention.
 
 ---
 
-### Level 2 — Emergency (Orange)
+### Level 2 -- Emergency (Orange)
 **Target response time:** 10 minutes
 
 Potentially life-threatening conditions or severe pain requiring rapid assessment.
@@ -42,13 +44,13 @@ Potentially life-threatening conditions or severe pain requiring rapid assessmen
 **Vital sign triggers:**
 - Heart rate < 50 or > 130 bpm
 - Systolic BP < 90 or > 200 mmHg
-- Oxygen saturation 85–90%
-- Temperature > 40.0°C
-- Pain scale 8–10
+- Oxygen saturation 85-90%
+- Temperature > 40.0C
+- Pain scale 8-10
 
 ---
 
-### Level 3 — Urgent (Yellow)
+### Level 3 -- Urgent (Yellow)
 **Target response time:** 30 minutes
 
 Serious conditions that are currently stable but need prompt attention.
@@ -56,20 +58,20 @@ Serious conditions that are currently stable but need prompt attention.
 **Examples:**
 - Moderate abdominal pain
 - Moderate difficulty breathing (stable vitals)
-- High fever (38.5–40.0°C) with other symptoms
+- High fever (38.5-40.0C) with other symptoms
 - Fractures without neurovascular compromise
 - Moderate dehydration
 - Acute mental health crisis (stable)
 
 **Vital sign triggers:**
-- Heart rate 100–130 bpm
-- Systolic BP 160–200 mmHg
-- Temperature 38.5–40.0°C
-- Pain scale 5–7
+- Heart rate 100-130 bpm
+- Systolic BP 160-200 mmHg
+- Temperature 38.5-40.0C
+- Pain scale 5-7
 
 ---
 
-### Level 4 — Semi-Urgent (Green)
+### Level 4 -- Semi-Urgent (Green)
 **Target response time:** 60 minutes
 
 Less urgent conditions that may worsen without treatment but are not immediately dangerous.
@@ -84,7 +86,7 @@ Less urgent conditions that may worsen without treatment but are not immediately
 
 ---
 
-### Level 5 — Non-Urgent (Blue)
+### Level 5 -- Non-Urgent (Blue)
 **Target response time:** 120 minutes
 
 Minor conditions suitable for routine care.
@@ -102,12 +104,22 @@ Minor conditions suitable for routine care.
 
 The triage engine evaluates the following factors in order:
 
-1. **Critical vital signs** — Any single vital in the critical range triggers Level 1 or 2
-2. **Symptom severity** — Mapped against known high-risk symptom combinations
-3. **Pain scale** — Incorporated as a modifier to symptom severity
-4. **Duration** — Acute onset generally elevates priority
-5. **Patient history** — Known conditions (e.g., cardiac history) may elevate similar presentations
-6. **Age modifiers** — Pediatric (< 5) and geriatric (> 70) patients receive a priority bump for certain conditions
+1. **Critical vital signs** -- Any single vital in the critical range triggers Level 1 or 2
+2. **Symptom severity** -- Mapped against known high-risk symptom combinations
+3. **Pain scale** -- Incorporated as a modifier to symptom severity
+4. **Duration** -- Acute onset generally elevates priority
+5. **Patient history** -- Known conditions (e.g., cardiac history) may elevate similar presentations
+6. **Age modifiers** -- Pediatric (< 5) and geriatric (> 70) patients receive a priority bump for certain conditions
+
+## Triage Queue
+
+The triage queue (`GET /api/v1/triage/queue`) displays patients sorted by:
+1. Priority level (ascending -- Level 1 first)
+2. Time of submission (ascending -- earlier submissions first within the same priority)
+
+Each queue item includes calculated `wait_time_minutes` based on the time since submission. Queue items can have one of three statuses: `waiting`, `in_progress`, or `completed`.
+
+Staff (nurses, doctors, admins) can update a patient's status via `PUT /api/v1/triage/{id}/status`. Status changes trigger a WebSocket broadcast so all connected clients see the update in real time.
 
 ## Important Disclaimers
 

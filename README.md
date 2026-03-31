@@ -4,13 +4,20 @@ A digital nurse assistant that provides patient triage, symptom checking, BMI/he
 
 ## Features
 
-- **Patient Triage** — Assess symptoms and vitals to assign 5-level priority (Resuscitation through Non-Urgent) using clinical decision rules
-- **Symptom Checker** — Match reported symptoms against 100+ conditions across 12 medical categories with urgency assessment
-- **BMI & Health Metrics** — Calculate BMI, record and track patient vitals with real-time assessments
-- **Medication Reminders** — Schedule medication reminders with dosage, timing, and delivery via Celery + Redis
-- **Patient Records** — Store and retrieve patient health data, visit history, and audit trails
-- **Role-Based Access** — Four roles (patient, nurse, doctor, admin) with granular permissions
-- **HIPAA-Aware** — Audit logging on all sensitive operations, ownership-based access control
+- **Patient Triage** -- Assess symptoms and vitals to assign 5-level priority (Resuscitation through Non-Urgent) using clinical decision rules
+- **Symptom Checker** -- Match reported symptoms against 100+ conditions across 12 medical categories with urgency assessment
+- **AI-Powered Analysis** -- Optional Claude API integration for enhanced symptom analysis alongside rule-based results
+- **BMI & Health Metrics** -- Calculate BMI (metric and imperial), record and track patient vitals with real-time assessments
+- **Medication Reminders** -- Schedule medication reminders with dosage, timing, and delivery via Celery + Redis
+- **Patient Records** -- Store and retrieve patient health data, visit history, and audit trails
+- **Patient Self-Registration** -- Patients can create their own records via `/patients/me`
+- **Real-Time Triage Queue** -- WebSocket-powered live updates when the triage queue changes
+- **Role-Based Access** -- Four roles (patient, nurse, doctor, admin) with granular permissions
+- **Password Reset** -- Forgot-password / reset-password flow with time-limited tokens
+- **Account Lockout** -- Automatic lockout after 5 failed login attempts (15-minute cooldown)
+- **Soft Delete** -- Patient records are soft-deleted, preserving data integrity
+- **Offline-Capable PWA** -- Service worker with cache-first strategy and push notification support
+- **HIPAA-Aware** -- Audit logging on all sensitive operations, ownership-based access control, correlation IDs on every response
 
 ## Tech Stack
 
@@ -21,10 +28,13 @@ A digital nurse assistant that provides patient triage, symptom checking, BMI/he
 | ORM | SQLAlchemy 2.0, Alembic migrations |
 | Auth | OAuth2 + JWT (httpOnly cookies + Bearer tokens) |
 | Task Queue | Celery + Redis |
-| Security | bcrypt, rate limiting, CORS, TLS (nginx) |
-| Testing | pytest (249 tests, 98% coverage) |
-| CI/CD | GitHub Actions |
+| AI Analysis | Anthropic Claude API (optional) |
+| Real-Time | WebSocket (triage queue broadcasts) |
+| Security | bcrypt, rate limiting, CORS, CSRF protection, account lockout, JWT blacklist, TLS (nginx) |
+| Testing | pytest (257 tests, 98% coverage) |
+| CI/CD | GitHub Actions (lint + format + bandit security scan + tests) |
 | Linting | ruff |
+| Frontend | Jinja2 templates, service worker (PWA) |
 
 ## Quick Start
 
@@ -40,8 +50,8 @@ uvicorn app.main:app --reload
 ```
 
 Open:
-- **http://localhost:8000** — Web UI (mobile-first)
-- **http://localhost:8000/docs** — Interactive Swagger API docs
+- **http://localhost:8000** -- Web UI (mobile-first patient management)
+- **http://localhost:8000/docs** -- Interactive Swagger API docs
 
 ### Docker (Full Stack)
 
@@ -49,18 +59,20 @@ Open:
 docker-compose up --build
 ```
 
-This starts PostgreSQL, Redis, Celery workers, and Nginx with TLS.
+This starts PostgreSQL, Redis, Celery workers, Nginx with TLS, and the API. The `entrypoint.sh` runs Alembic migrations automatically before starting the server. The Docker image is built once and shared across `api`, `celery-worker`, and `celery-beat` services.
 
 ## Demo Accounts
 
 After starting the server, register via the UI or API. All registrations default to the `patient` role. To create elevated accounts, use the admin user management endpoints or update roles directly in the database.
 
+**Password requirements:** Minimum 8 characters, at least one uppercase letter, one lowercase letter, and one digit.
+
 | Role | Capabilities |
 |------|-------------|
-| Patient | Check symptoms, calculate BMI, view own records |
+| Patient | Check symptoms, calculate BMI, view own records, self-register patient profile |
 | Nurse | All patient actions + create patients, record vitals, submit triage, view queue, manage medications |
 | Doctor | Same as nurse |
-| Admin | All actions + manage users (roles, activate/deactivate) |
+| Admin | All actions + manage users (roles, activate/deactivate), delete patients, view audit logs |
 
 ## Project Structure
 
@@ -68,61 +80,71 @@ After starting the server, register via the UI or API. All registrations default
 AI_Nurse_Project/
 ├── app/
 │   ├── main.py                  # FastAPI entry point
-│   ├── config.py                # Settings (env-based)
+│   ├── config.py                # Settings (env-based, Pydantic)
 │   ├── database.py              # SQLAlchemy engine and session
 │   ├── celery_app.py            # Celery configuration
+│   ├── middleware/
+│   │   └── correlation.py       # X-Correlation-ID middleware
 │   ├── models/                  # SQLAlchemy ORM models
-│   │   ├── user.py              # User accounts and roles
-│   │   ├── patient.py           # Patient demographics (linked to User via FK)
+│   │   ├── user.py              # User accounts, roles, lockout, reset tokens
+│   │   ├── patient.py           # Patient demographics (linked to User via FK, soft delete, JSON allergies)
 │   │   ├── medication.py        # Medication reminders
 │   │   ├── triage.py            # Triage + symptom check records
 │   │   ├── vitals.py            # Vitals records (with stored assessments)
 │   │   └── audit.py             # Audit log entries
 │   ├── schemas/                 # Pydantic request/response schemas
 │   ├── routers/                 # API route handlers
-│   │   ├── auth.py              # Register, login, logout, user management
-│   │   ├── patients.py          # CRUD + history
-│   │   ├── triage.py            # Triage submission + queue
-│   │   ├── symptoms.py          # Symptom checker
-│   │   ├── metrics.py           # BMI + vitals
-│   │   ├── medications.py       # Medication reminders
+│   │   ├── auth.py              # Register, login, logout, forgot/reset password, user management
+│   │   ├── patients.py          # CRUD + search + self-registration + history
+│   │   ├── triage.py            # Triage submission + queue + WebSocket notification
+│   │   ├── symptoms.py          # Symptom checker + optional AI analysis
+│   │   ├── metrics.py           # BMI (metric + imperial) + vitals
+│   │   ├── medications.py       # Medication reminders (CRUD)
+│   │   ├── ws.py                # WebSocket endpoint for triage queue
 │   │   └── audit.py             # Audit log access
-│   ├── services/                # Business logic (no HTTP/DB dependencies)
+│   ├── services/                # Business logic layer
 │   │   ├── triage_engine.py     # Multi-factor triage assessment
 │   │   ├── symptom_checker.py   # 100+ condition matching engine
-│   │   ├── bmi_calculator.py    # BMI calculation and interpretation
+│   │   ├── ai_analyzer.py       # Claude API integration for symptom analysis
+│   │   ├── bmi_calculator.py    # BMI calculation (metric + imperial)
 │   │   ├── vitals_assessor.py   # Vital sign assessment ranges
 │   │   ├── medication_scheduler.py
+│   │   ├── patient_service.py   # Patient history aggregation
 │   │   ├── notifier.py          # Email notification builder
 │   │   └── audit_logger.py      # Audit trail service
 │   ├── tasks/                   # Celery background tasks
 │   │   └── reminders.py         # Medication reminder dispatch
 │   └── utils/
-│       ├── auth.py              # JWT, password hashing, RBAC
+│       ├── auth.py              # JWT, password hashing, RBAC, token blacklist
 │       └── validators.py
-├── tests/                       # 249 tests (pytest)
+├── tests/                       # 257 tests (pytest, in-memory SQLite)
 ├── alembic/                     # Database migrations
 ├── templates/                   # Jinja2 HTML templates
-├── static/                      # CSS, JS, images
+├── static/                      # CSS, JS, images, service worker
+│   └── sw.js                    # Service worker (offline cache + push notifications)
 ├── nginx/                       # Nginx + TLS config
 ├── docs/                        # Documentation
-├── Dockerfile
-├── docker-compose.yml
+├── .github/workflows/ci.yml     # CI pipeline (lint, format, bandit, tests)
+├── Dockerfile                   # Multi-stage with HEALTHCHECK + entrypoint
+├── docker-compose.yml           # Full stack (no version key, image reuse)
+├── entrypoint.sh                # Auto-runs Alembic migrations on startup
 └── requirements.txt
 ```
 
 ## API Endpoints
 
-All endpoints are prefixed with `/api/v1`. Protected endpoints require a JWT token via `Authorization: Bearer <token>` header or httpOnly cookie.
+All endpoints are prefixed with `/api/v1`. Protected endpoints require a JWT token via `Authorization: Bearer <token>` header or httpOnly cookie. All responses include an `X-Correlation-ID` header for request tracing.
 
 ### Authentication
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/auth/register` | No | Register (always patient role) |
-| POST | `/auth/login` | No | Login, receive JWT |
-| POST | `/auth/logout` | No | Clear auth cookie |
+| POST | `/auth/login` | No | Login, receive JWT (account lockout after 5 failures) |
+| POST | `/auth/logout` | No | Clear auth cookie + blacklist token |
 | GET | `/auth/me` | Yes | Get current user profile |
+| POST | `/auth/forgot-password` | No | Request password reset token |
+| POST | `/auth/reset-password` | No | Reset password with token |
 | GET | `/auth/users` | Admin | List all users |
 | PUT | `/auth/users/{id}/role` | Admin | Change user role |
 | PUT | `/auth/users/{id}/deactivate` | Admin | Deactivate user |
@@ -133,10 +155,11 @@ All endpoints are prefixed with `/api/v1`. Protected endpoints require a JWT tok
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/patients` | Nurse/Doctor/Admin | Create patient record |
-| GET | `/patients` | Nurse/Doctor/Admin | List patients (paginated) |
+| GET | `/patients` | Nurse/Doctor/Admin | List patients (paginated, `?search=` by name) |
+| POST | `/patients/me` | Patient | Self-register patient profile |
 | GET | `/patients/{id}` | Owner or Staff | Get patient details |
 | PUT | `/patients/{id}` | Nurse/Doctor/Admin | Update patient |
-| DELETE | `/patients/{id}` | Admin | Delete patient |
+| DELETE | `/patients/{id}` | Admin | Soft-delete patient |
 | GET | `/patients/{id}/history` | Owner or Staff | Get visit history (triage, symptoms, vitals) |
 
 ### Triage
@@ -146,19 +169,20 @@ All endpoints are prefixed with `/api/v1`. Protected endpoints require a JWT tok
 | POST | `/triage` | Yes | Submit triage assessment |
 | GET | `/triage/queue` | Nurse/Doctor/Admin | View triage queue by priority |
 | PUT | `/triage/{id}/status` | Nurse/Doctor/Admin | Update triage status |
+| WS | `/ws/triage-queue` | Optional token | Real-time triage queue updates |
 
 ### Symptoms
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/symptoms/check` | Yes | Analyze symptoms, get condition matches |
+| POST | `/symptoms/check` | Yes | Analyze symptoms, get condition matches (+ optional AI analysis) |
 | GET | `/symptoms/conditions` | No | List all known conditions |
 
 ### Health Metrics
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/metrics/bmi` | No | Calculate BMI |
+| POST | `/metrics/bmi` | No | Calculate BMI (metric or imperial) |
 | POST | `/metrics/vitals` | Nurse/Doctor | Record patient vitals |
 | GET | `/metrics/vitals/{patient_id}` | Yes | Get vitals history |
 
@@ -167,8 +191,16 @@ All endpoints are prefixed with `/api/v1`. Protected endpoints require a JWT tok
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/medications/reminders` | Nurse/Doctor | Create medication reminder |
+| GET | `/medications/reminders/{id}` | Yes | Get a specific reminder |
+| PUT | `/medications/reminders/{id}` | Nurse/Doctor | Update medication reminder |
 | GET | `/medications/patient/{patient_id}` | Yes | List patient medications |
 | DELETE | `/medications/reminders/{id}` | Nurse/Doctor | Cancel a reminder |
+
+### Audit
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/audit` | Admin | View audit log entries |
 
 ## Triage Priority Levels
 
@@ -197,6 +229,9 @@ ruff check app/ tests/
 # Format
 ruff format app/ tests/
 
+# Security scan
+bandit -r app/ -ll
+
 # Run migrations
 alembic upgrade head
 
@@ -206,31 +241,37 @@ alembic revision --autogenerate -m "description"
 
 ### Workflow
 
-1. **Research** — Check for existing packages/patterns before writing from scratch
-2. **Plan** — Design approach, identify affected files and edge cases
-3. **TDD** — Write failing test, implement minimally, refactor
-4. **Review** — Run full verification loop (format, lint, test, security scan)
-5. **Commit** — Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
+1. **Research** -- Check for existing packages/patterns before writing from scratch
+2. **Plan** -- Design approach, identify affected files and edge cases
+3. **TDD** -- Write failing test, implement minimally, refactor
+4. **Review** -- Run full verification loop (format, lint, bandit, test)
+5. **Commit** -- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
 
 ### Security Checklist
 
-- No hardcoded secrets (enforced: production fails if JWT_SECRET_KEY unset)
+- No hardcoded secrets (enforced: production fails if `JWT_SECRET_KEY` unset)
 - All input validated via Pydantic schemas
 - Parameterized queries via SQLAlchemy ORM
 - JWT with httpOnly cookies + Bearer token fallback
-- Rate limiting on auth endpoints (5/min register, 10/min login)
+- JWT blacklist on logout (in-memory set)
+- CSRF protection via `X-Requested-With` header requirement
+- Password complexity enforcement (uppercase, lowercase, digit, min 8 chars)
+- Account lockout after 5 failed login attempts (15-minute cooldown)
+- Rate limiting on auth endpoints (5/min register, 10/min login, 5/min forgot-password)
 - Role-based access control on all protected endpoints
 - Patient ownership checks (patients can only view their own records)
+- Soft delete for patient records (data preserved, filtered from queries)
 - Audit logging on all sensitive operations
+- Correlation IDs (`X-Correlation-ID`) on every response for request tracing
 - Non-root Docker container
 - Nginx with TLS 1.2+, HSTS, X-Frame-Options DENY
 
 ## Documentation
 
-- [API Reference](docs/api_reference.md) — Full endpoint documentation with request/response examples
-- [Architecture](docs/architecture.md) — System design, data flows, and role permissions
-- [Deployment Guide](docs/deployment.md) — Local, Docker, and production deployment
-- [Triage Guide](docs/triage_guide.md) — Clinical decision logic and priority levels
+- [API Reference](docs/api_reference.md) -- Full endpoint documentation with request/response examples
+- [Architecture](docs/architecture.md) -- System design, data flows, and role permissions
+- [Deployment Guide](docs/deployment.md) -- Local, Docker, and production deployment
+- [Triage Guide](docs/triage_guide.md) -- Clinical decision logic and priority levels
 
 ## License
 
