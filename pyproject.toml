@@ -1,0 +1,10 @@
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/celery_app.py",
+    "app/tasks/*",
+    "app/services/notifier.py",
+]
+
+[tool.coverage.report]
+fail_under = 90
