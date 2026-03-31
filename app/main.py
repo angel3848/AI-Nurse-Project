@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.config import settings
+from app.middleware.correlation import CorrelationIDMiddleware
 from app.database import Base, engine
 from app.models import audit, medication, patient, triage, user, vitals  # noqa: F401 — register models
 from app.routers import audit as audit_router
@@ -43,6 +44,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CorrelationIDMiddleware)
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 

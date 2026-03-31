@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -59,15 +60,29 @@ def create_triage(
 @router.get("/queue", response_model=TriageQueueResponse)
 def get_triage_queue(
     status: str = Query("waiting", pattern="^(waiting|in_progress|completed)$"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("nurse", "doctor", "admin")),
 ) -> TriageQueueResponse:
     """View current triage queue sorted by priority. Requires nurse, doctor, or admin role."""
-    records = (
+    base_query = (
         db.query(TriageRecord, Patient.full_name)
         .join(Patient, TriageRecord.patient_id == Patient.id)
         .filter(TriageRecord.status == status)
-        .order_by(TriageRecord.priority_level.asc(), TriageRecord.created_at.asc())
+    )
+
+    total = (
+        db.query(func.count(TriageRecord.id))
+        .join(Patient, TriageRecord.patient_id == Patient.id)
+        .filter(TriageRecord.status == status)
+        .scalar()
+    )
+
+    records = (
+        base_query.order_by(TriageRecord.priority_level.asc(), TriageRecord.created_at.asc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 
@@ -93,7 +108,7 @@ def get_triage_queue(
             )
         )
 
-    return TriageQueueResponse(queue=queue, total=len(queue))
+    return TriageQueueResponse(queue=queue, total=total)
 
 
 @router.put("/{triage_id}/status")

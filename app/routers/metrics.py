@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -34,24 +32,24 @@ def calculate_bmi(request: BMIRequest) -> BMIResponse:
 
 @router.post("/vitals", response_model=VitalsRecordResponse, status_code=201)
 def record_vitals(
-    request: VitalsRecordRequest,
-    http_request: Request,
+    body: VitalsRecordRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("nurse", "doctor")),
 ) -> VitalsRecordResponse:
     """Record patient vital signs. Requires nurse or doctor role."""
-    patient = db.query(Patient).filter(Patient.id == request.patient_id).first()
+    patient = db.query(Patient).filter(Patient.id == body.patient_id).first()
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
 
     readings, alerts = assess_all_vitals(
-        heart_rate=request.heart_rate,
-        bp_systolic=request.blood_pressure_systolic,
-        bp_diastolic=request.blood_pressure_diastolic,
-        temperature_c=request.temperature_c,
-        respiratory_rate=request.respiratory_rate,
-        oxygen_saturation=request.oxygen_saturation,
-        blood_glucose_mg_dl=request.blood_glucose_mg_dl,
+        heart_rate=body.heart_rate,
+        bp_systolic=body.blood_pressure_systolic,
+        bp_diastolic=body.blood_pressure_diastolic,
+        temperature_c=body.temperature_c,
+        respiratory_rate=body.respiratory_rate,
+        oxygen_saturation=body.oxygen_saturation,
+        blood_glucose_mg_dl=body.blood_glucose_mg_dl,
     )
 
     assessments_data = {
@@ -60,17 +58,17 @@ def record_vitals(
     }
 
     record = VitalsRecord(
-        patient_id=request.patient_id,
+        patient_id=body.patient_id,
         recorded_by=current_user.id,
-        heart_rate=request.heart_rate,
-        bp_systolic=request.blood_pressure_systolic,
-        bp_diastolic=request.blood_pressure_diastolic,
-        temperature_c=request.temperature_c,
-        respiratory_rate=request.respiratory_rate,
-        oxygen_saturation=request.oxygen_saturation,
-        blood_glucose_mg_dl=request.blood_glucose_mg_dl,
-        notes=request.notes,
-        assessments=json.dumps(assessments_data),
+        heart_rate=body.heart_rate,
+        bp_systolic=body.blood_pressure_systolic,
+        bp_diastolic=body.blood_pressure_diastolic,
+        temperature_c=body.temperature_c,
+        respiratory_rate=body.respiratory_rate,
+        oxygen_saturation=body.oxygen_saturation,
+        blood_glucose_mg_dl=body.blood_glucose_mg_dl,
+        notes=body.notes,
+        assessments=assessments_data,
     )
     db.add(record)
     db.commit()
@@ -81,10 +79,9 @@ def record_vitals(
         action="create",
         resource_type="vitals",
         resource_id=record.id,
-        detail=f"Recorded vitals for patient {request.patient_id}"
-        + (f" — alerts: {', '.join(alerts)}" if alerts else ""),
+        detail=f"Recorded vitals for patient {body.patient_id}" + (f" — alerts: {', '.join(alerts)}" if alerts else ""),
         user=current_user,
-        ip_address=http_request.client.host if http_request.client else None,
+        ip_address=request.client.host if request.client else None,
     )
 
     return VitalsRecordResponse(
@@ -123,7 +120,7 @@ def get_vitals_history(
     responses = []
     for r in records:
         if r.assessments:
-            stored = json.loads(r.assessments)
+            stored = r.assessments
             readings = {k: VitalReading(**v) for k, v in stored["readings"].items()}
             alerts = stored["alerts"]
         else:

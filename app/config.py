@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     cookie_secure: bool = False  # Set True in production (requires HTTPS)
     cookie_domain: str | None = None
 
+    # Connection pool settings (ignored for SQLite)
+    pool_size: int = 5
+    max_overflow: int = 10
+    pool_pre_ping: bool = True
+
     # Email notifications
     smtp_host: str = ""
     smtp_port: int = 587

@@ -1,11 +1,8 @@
 import logging
 from datetime import date, datetime, time, timezone
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from app.celery_app import celery
-from app.config import settings
+from app.database import get_standalone_session
 from app.models.medication import MedicationReminderModel
 from app.models.patient import Patient
 from app.models.user import User
@@ -14,21 +11,10 @@ from app.services.notifier import build_reminder_email, send_email
 logger = logging.getLogger(__name__)
 
 
-_engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
-)
-_SessionFactory = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)
-
-
-def get_session():
-    return _SessionFactory()
-
-
 @celery.task(name="app.tasks.reminders.check_and_send_reminders")
 def check_and_send_reminders() -> dict:
     """Check for medication reminders due now and send notifications."""
-    db = get_session()
+    db = get_standalone_session()
     try:
         today = date.today()
         now = datetime.now(timezone.utc).time()
@@ -76,7 +62,7 @@ def send_reminder_notification(
     instructions: str,
 ) -> dict:
     """Send a medication reminder notification via email."""
-    db = get_session()
+    db = get_standalone_session()
     try:
         # Look up patient's associated user email
         patient = db.query(Patient).filter(Patient.id == patient_id).first()
@@ -124,7 +110,7 @@ def send_reminder_notification(
 @celery.task(name="app.tasks.reminders.expire_old_reminders")
 def expire_old_reminders() -> dict:
     """Mark reminders past their end date as completed."""
-    db = get_session()
+    db = get_standalone_session()
     try:
         today = date.today()
         expired = (

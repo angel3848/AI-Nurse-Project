@@ -3,11 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.patient import Patient
-from app.models.triage import SymptomCheckRecord, TriageRecord
 from app.models.user import User
-from app.models.vitals import VitalsRecord
 from app.schemas.patient import (
-    HistoryRecord,
     PatientCreate,
     PatientHistoryResponse,
     PatientListResponse,
@@ -15,6 +12,7 @@ from app.schemas.patient import (
     PatientUpdate,
 )
 from app.services.audit_logger import log_action
+from app.services.patient_service import get_patient_history as get_history
 from app.utils.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/v1/patients", tags=["Patients"])
@@ -22,13 +20,13 @@ router = APIRouter(prefix="/api/v1/patients", tags=["Patients"])
 
 @router.post("", response_model=PatientResponse, status_code=201)
 def create_patient(
-    request: PatientCreate,
-    http_request: Request,
+    body: PatientCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("nurse", "doctor", "admin")),
 ) -> Patient:
     """Register a new patient. Requires nurse, doctor, or admin role."""
-    patient = Patient(**request.model_dump())
+    patient = Patient(**body.model_dump())
     db.add(patient)
     db.commit()
     db.refresh(patient)
@@ -39,7 +37,7 @@ def create_patient(
         resource_id=patient.id,
         detail=f"Created patient: {patient.full_name}",
         user=current_user,
-        ip_address=http_request.client.host if http_request.client else None,
+        ip_address=request.client.host if request.client else None,
     )
     return patient
 
@@ -159,102 +157,11 @@ def get_patient_history(
         if patient.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-    records: list[HistoryRecord] = []
-
-    if record_type is None or record_type == "triage":
-        triage_records = (
-            db.query(TriageRecord)
-            .filter(TriageRecord.patient_id == patient_id)
-            .order_by(TriageRecord.created_at.desc())
-            .all()
-        )
-        for t in triage_records:
-            records.append(
-                HistoryRecord(
-                    id=t.id,
-                    record_type="triage",
-                    summary=f"Level {t.priority_level} ({t.priority_label}) — {t.chief_complaint}",
-                    details={
-                        "priority_level": t.priority_level,
-                        "priority_label": t.priority_label,
-                        "chief_complaint": t.chief_complaint,
-                        "symptoms": t.symptoms,
-                        "pain_scale": t.pain_scale,
-                        "flags": t.flags,
-                        "recommended_action": t.recommended_action,
-                        "vitals": {
-                            "heart_rate": t.heart_rate,
-                            "blood_pressure": f"{t.bp_systolic}/{t.bp_diastolic}",
-                            "temperature_c": t.temperature_c,
-                            "respiratory_rate": t.respiratory_rate,
-                            "oxygen_saturation": t.oxygen_saturation,
-                        },
-                    },
-                    created_at=t.created_at,
-                )
-            )
-
-    if record_type is None or record_type == "symptom_check":
-        symptom_records = (
-            db.query(SymptomCheckRecord)
-            .filter(SymptomCheckRecord.patient_id == patient_id)
-            .order_by(SymptomCheckRecord.created_at.desc())
-            .all()
-        )
-        for s in symptom_records:
-            conditions = s.conditions_found
-            top_condition = conditions[0]["condition"] if conditions else "No match"
-            records.append(
-                HistoryRecord(
-                    id=s.id,
-                    record_type="symptom_check",
-                    summary=f"{s.urgency.capitalize()} urgency — {top_condition}",
-                    details={
-                        "symptoms": s.symptoms,
-                        "duration_days": s.duration_days,
-                        "severity": s.severity,
-                        "urgency": s.urgency,
-                        "conditions_found": conditions,
-                        "recommended_action": s.recommended_action,
-                    },
-                    created_at=s.created_at,
-                )
-            )
-
-    if record_type is None or record_type == "vitals":
-        vitals_records = (
-            db.query(VitalsRecord)
-            .filter(VitalsRecord.patient_id == patient_id)
-            .order_by(VitalsRecord.recorded_at.desc())
-            .all()
-        )
-        for v in vitals_records:
-            records.append(
-                HistoryRecord(
-                    id=v.id,
-                    record_type="vitals",
-                    summary=f"Vitals — HR {v.heart_rate}, BP {v.bp_systolic}/{v.bp_diastolic}, SpO2 {v.oxygen_saturation}%",
-                    details={
-                        "heart_rate": v.heart_rate,
-                        "blood_pressure": f"{v.bp_systolic}/{v.bp_diastolic}",
-                        "temperature_c": v.temperature_c,
-                        "respiratory_rate": v.respiratory_rate,
-                        "oxygen_saturation": v.oxygen_saturation,
-                        "blood_glucose_mg_dl": v.blood_glucose_mg_dl,
-                        "notes": v.notes,
-                        "recorded_by": v.recorded_by,
-                    },
-                    created_at=v.recorded_at,
-                )
-            )
-
-    records.sort(key=lambda r: r.created_at, reverse=True)
-    total = len(records)
-    records = records[offset : offset + limit]
-
-    return PatientHistoryResponse(
+    return get_history(
+        db=db,
         patient_id=patient_id,
         patient_name=patient.full_name,
-        records=records,
-        total=total,
+        record_type=record_type,
+        limit=limit,
+        offset=offset,
     )
