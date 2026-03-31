@@ -8,7 +8,7 @@ class TestHttpOnlyCookies:
             "/api/v1/auth/login",
             json={
                 "email": "cookie@test.com",
-                "password": "testpass123",
+                "password": "Testpass123",
             },
         )
         assert response.status_code == 200
@@ -20,7 +20,7 @@ class TestHttpOnlyCookies:
             "/api/v1/auth/login",
             json={
                 "email": "cookie@test.com",
-                "password": "testpass123",
+                "password": "Testpass123",
             },
         )
         # Use the cookie (no Authorization header)
@@ -34,7 +34,7 @@ class TestHttpOnlyCookies:
             "/api/v1/auth/login",
             json={
                 "email": "logout@test.com",
-                "password": "testpass123",
+                "password": "Testpass123",
             },
         )
         response = client.post("/api/v1/auth/logout")
@@ -56,7 +56,7 @@ class TestEmailValidation:
             "/api/v1/auth/register",
             json={
                 "email": "valid@example.com",
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "Valid User",
             },
         )
@@ -67,7 +67,7 @@ class TestEmailValidation:
             "/api/v1/auth/register",
             json={
                 "email": "invalidemail.com",
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "Invalid",
             },
         )
@@ -78,7 +78,7 @@ class TestEmailValidation:
             "/api/v1/auth/register",
             json={
                 "email": "user@",
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "Invalid",
             },
         )
@@ -89,7 +89,7 @@ class TestEmailValidation:
             "/api/v1/auth/register",
             json={
                 "email": "aaaaa",
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "Invalid",
             },
         )

@@ -1,3 +1,4 @@
+import html
 import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -42,7 +43,12 @@ def send_email(to_email: str, subject: str, body_html: str, body_text: str) -> b
 
 def build_reminder_email(medication_name: str, dosage: str, instructions: str) -> tuple[str, str, str]:
     """Build email subject, HTML body, and text body for a medication reminder."""
-    subject = f"Medication Reminder: {medication_name}"
+    # Escape user-provided values to prevent HTML injection
+    safe_name = html.escape(medication_name)
+    safe_dosage = html.escape(dosage)
+    safe_instructions = html.escape(instructions) if instructions else ""
+
+    subject = f"Medication Reminder: {safe_name}"
 
     body_text = f"Time to take your medication!\n\n" f"Medication: {medication_name}\n" f"Dosage: {dosage}\n"
     if instructions:
@@ -59,13 +65,13 @@ def build_reminder_email(medication_name: str, dosage: str, instructions: str) -
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Medication</td>
-                    <td style="padding: 8px 0; font-weight: 600;">{medication_name}</td>
+                    <td style="padding: 8px 0; font-weight: 600;">{safe_name}</td>
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Dosage</td>
-                    <td style="padding: 8px 0; font-weight: 600;">{dosage}</td>
+                    <td style="padding: 8px 0; font-weight: 600;">{safe_dosage}</td>
                 </tr>
-                {"<tr><td style='padding: 8px 0; color: #6b7280; font-size: 14px;'>Instructions</td><td style='padding: 8px 0;'>" + instructions + "</td></tr>" if instructions else ""}
+                {"<tr><td style='padding: 8px 0; color: #6b7280; font-size: 14px;'>Instructions</td><td style='padding: 8px 0;'>" + safe_instructions + "</td></tr>" if safe_instructions else ""}
             </table>
             <p style="margin-top: 20px; font-size: 12px; color: #9ca3af;">
                 This is an automated reminder from AI Nurse. Please take your medication as prescribed.

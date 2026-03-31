@@ -130,9 +130,16 @@ class TestGetReminder:
 
 
 class TestListPatientMedications:
-    def test_list_empty(self, client, db):
+    def test_list_nonexistent_patient(self, client, db):
         user = create_test_user(db)
         response = client.get("/api/v1/medications/patient/nonexistent-id", headers=auth_header(user))
+        assert response.status_code == 404
+
+    def test_list_empty(self, client, db):
+        nurse = create_test_user(db, role="nurse")
+        headers = auth_header(nurse)
+        pid = create_patient(client, headers)
+        response = client.get(f"/api/v1/medications/patient/{pid}", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 0

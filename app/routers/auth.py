@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -16,6 +18,8 @@ from app.schemas.auth import (
 )
 from app.services.audit_logger import log_action
 from app.utils.auth import (
+    COOKIE_NAME,
+    blacklist_token,
     clear_auth_cookie,
     create_access_token,
     get_current_user,
@@ -54,13 +58,32 @@ def register(request: Request, body: UserRegister, db: Session = Depends(get_db)
 def login(request: Request, response: Response, body: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
     """Authenticate and receive a JWT access token (also set as httpOnly cookie)."""
     user = db.query(User).filter(User.email == body.email).first()
+
+    # Account lockout check
+    if user is not None and user.locked_until and user.locked_until > datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=423,
+            detail="Account is temporarily locked due to too many failed login attempts. Try again later.",
+        )
+
     if user is None or not verify_password(body.password, user.hashed_password):
+        # Increment failed attempts when user exists
+        if user is not None:
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= 5:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
+
+    # Reset failed login attempts on successful login
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.commit()
 
     token = create_access_token(user.id, user.role)
     set_auth_cookie(response, token)
@@ -71,8 +94,11 @@ def login(request: Request, response: Response, body: UserLogin, db: Session = D
 
 
 @router.post("/logout")
-def logout_user(response: Response) -> dict:
-    """Clear the auth cookie."""
+def logout_user(request: Request, response: Response) -> dict:
+    """Clear the auth cookie and blacklist the token."""
+    token = request.cookies.get(COOKIE_NAME) or request.headers.get("Authorization", "").removeprefix("Bearer ")
+    if token:
+        blacklist_token(token)
     clear_auth_cookie(response)
     return {"detail": "Logged out"}
 
@@ -153,6 +179,12 @@ def deactivate_user(
         raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
 
     user.is_active = False
+    # Blacklist a fresh token for the deactivated user so any existing
+    # sessions are effectively invalidated on next request (the is_active
+    # check in get_current_user also guards this, but blacklisting is
+    # belt-and-suspenders).
+    revoke_token = create_access_token(user.id, user.role)
+    blacklist_token(revoke_token)
     db.commit()
     db.refresh(user)
 

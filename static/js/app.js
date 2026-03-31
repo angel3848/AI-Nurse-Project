@@ -1,9 +1,20 @@
 const API = '/api/v1';
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
 
+// --- XSS prevention ---
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
 // --- API helpers ---
 async function api(path, options = {}) {
-    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...options.headers };
     const res = await fetch(`${API}${path}`, { ...options, headers, credentials: 'same-origin' });
     if (res.status === 204) return null;
     if (res.status === 401) {
@@ -122,7 +133,7 @@ function enterApp() {
 async function loadDashboard() {
     const container = $('#dashboard-content');
     const role = currentUser.role;
-    let html = `<div class="greeting">Welcome back, <strong>${currentUser.full_name}</strong></div>`;
+    let html = `<div class="greeting">Welcome back, <strong>${escapeHtml(currentUser.full_name)}</strong></div>`;
 
     // Quick actions
     html += '<div class="section-title" style="margin-top:16px">Quick Actions</div>';
@@ -148,11 +159,11 @@ async function loadDashboard() {
                 queue.queue.slice(0, 5).forEach(item => {
                     html += `<div class="card">
                         <div class="card-header">
-                            <span class="card-title">${item.patient_name}</span>
-                            <span class="badge badge-${item.priority_color}">Level ${item.priority_level}</span>
+                            <span class="card-title">${escapeHtml(item.patient_name)}</span>
+                            <span class="badge badge-${escapeHtml(item.priority_color)}">Level ${escapeHtml(item.priority_level)}</span>
                         </div>
-                        <div class="card-meta">${item.chief_complaint}</div>
-                        <div class="card-meta">Waiting: ${item.wait_time_minutes} min</div>
+                        <div class="card-meta">${escapeHtml(item.chief_complaint)}</div>
+                        <div class="card-meta">Waiting: ${escapeHtml(item.wait_time_minutes)} min</div>
                     </div>`;
                 });
                 if (queue.total > 5) {
@@ -173,7 +184,7 @@ async function loadDashboard() {
                 categories[c.category] = (categories[c.category] || 0) + 1;
             });
             for (const [cat, count] of Object.entries(categories)) {
-                html += `<span class="stat-chip">${cat}: ${count}</span>`;
+                html += `<span class="stat-chip">${escapeHtml(cat)}: ${escapeHtml(count)}</span>`;
             }
             html += '</div>';
         } catch (e) {}
@@ -258,9 +269,9 @@ async function handleBMI(e) {
             : `${data.healthy_weight_range.min_kg}–${data.healthy_weight_range.max_kg} kg`;
         result.innerHTML = `
             <div class="bmi-result">
-                <div class="bmi-value" style="color:${colorMap[data.category] || 'inherit'}">${data.bmi}</div>
-                <div class="bmi-category">${data.category}</div>
-                <p style="margin-top:12px;color:var(--gray-500);font-size:14px">${data.interpretation}</p>
+                <div class="bmi-value" style="color:${colorMap[data.category] || 'inherit'}">${escapeHtml(data.bmi)}</div>
+                <div class="bmi-category">${escapeHtml(data.category)}</div>
+                <p style="margin-top:12px;color:var(--gray-500);font-size:14px">${escapeHtml(data.interpretation)}</p>
                 <p style="margin-top:8px;font-size:13px;color:var(--gray-500)">
                     Healthy range: ${rangeText}
                 </p>
@@ -342,23 +353,23 @@ function renderSymptomResults(data) {
     const result = $('#symptom-result');
     const urgencyClass = { emergency: 'danger', high: 'danger', moderate: 'warning', low: 'info' };
     let html = `<div class="alert alert-${urgencyClass[data.urgency] || 'info'}">
-        Urgency: <strong>${data.urgency.toUpperCase()}</strong> — ${data.recommended_action}
+        Urgency: <strong>${escapeHtml(data.urgency.toUpperCase())}</strong> — ${escapeHtml(data.recommended_action)}
     </div>`;
     if (data.possible_conditions.length > 0) {
         html += '<div class="result-header">Possible Conditions</div>';
         data.possible_conditions.forEach(c => {
             const probColor = { high: 'var(--danger)', moderate: 'var(--warning)', low: 'var(--gray-500)' };
             html += `<div class="condition-item">
-                <div class="condition-name">${c.condition}
-                    <span class="condition-prob" style="color:${probColor[c.probability]}">(${c.probability})</span>
+                <div class="condition-name">${escapeHtml(c.condition)}
+                    <span class="condition-prob" style="color:${probColor[c.probability]}">(${escapeHtml(c.probability)})</span>
                 </div>
-                <div class="condition-desc">${c.description}</div>
+                <div class="condition-desc">${escapeHtml(c.description)}</div>
             </div>`;
         });
     } else {
         html += '<p style="color:var(--gray-500)">No matching conditions found.</p>';
     }
-    html += `<div class="disclaimer">${data.disclaimer}</div>`;
+    html += `<div class="disclaimer">${escapeHtml(data.disclaimer)}</div>`;
     result.innerHTML = html;
     show(result);
 }
@@ -395,7 +406,7 @@ function renderVitalsResult(data) {
     const result = $('#vitals-result');
     let html = '';
     if (data.alerts.length > 0) {
-        html += data.alerts.map(a => `<div class="alert alert-danger">${a}</div>`).join('');
+        html += data.alerts.map(a => `<div class="alert alert-danger">${escapeHtml(a)}</div>`).join('');
     } else {
         html += '<div class="alert alert-success">All vitals within normal range</div>';
     }
@@ -403,9 +414,9 @@ function renderVitalsResult(data) {
     for (const [key, reading] of Object.entries(data.readings)) {
         const label = key.replace(/_/g, ' ').replace('blood pressure ', 'BP ');
         html += `<div class="vital-item">
-            <div class="vital-value">${reading.value}</div>
-            <div class="vital-label">${label}</div>
-            <div class="vital-status ${reading.status}">${reading.status.replace(/_/g, ' ')}</div>
+            <div class="vital-value">${escapeHtml(reading.value)}</div>
+            <div class="vital-label">${escapeHtml(label)}</div>
+            <div class="vital-status ${escapeHtml(reading.status)}">${escapeHtml(reading.status.replace(/_/g, ' '))}</div>
         </div>`;
     }
     html += '</div>';
@@ -452,15 +463,15 @@ function renderTriageResult(data) {
     let html = `
         <div style="text-align:center;padding:16px 0">
             <div class="badge ${badgeClass}" style="font-size:16px;padding:6px 16px">
-                Level ${data.priority_level} — ${data.priority_label}
+                Level ${escapeHtml(data.priority_level)} — ${escapeHtml(data.priority_label)}
             </div>
-            <p style="margin-top:12px;font-size:14px">${data.recommended_action}</p>
+            <p style="margin-top:12px;font-size:14px">${escapeHtml(data.recommended_action)}</p>
         </div>
     `;
     if (data.flags.length > 0) {
         html += '<div style="margin-top:8px"><strong>Flags:</strong></div>';
         html += '<div class="symptom-tags" style="margin-top:4px">';
-        data.flags.forEach(f => { html += `<span class="badge badge-red">${f.replace(/_/g, ' ')}</span>`; });
+        data.flags.forEach(f => { html += `<span class="badge badge-red">${escapeHtml(f.replace(/_/g, ' '))}</span>`; });
         html += '</div>';
     }
     result.innerHTML = html;

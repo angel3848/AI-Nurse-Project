@@ -53,7 +53,7 @@ def create_test_user(db, role: str = "patient", email: str = None) -> User:
         email = f"{role}@test.com"
     user = User(
         email=email,
-        hashed_password=hash_password("testpass123"),
+        hashed_password=hash_password("Testpass123"),
         full_name=f"Test {role.capitalize()}",
         role=role,
     )

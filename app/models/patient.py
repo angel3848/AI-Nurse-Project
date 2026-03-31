@@ -23,9 +23,14 @@ class Patient(Base):
     emergency_contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    is_deleted: Mapped[bool] = mapped_column(default=False)
 
     user: Mapped["User"] = relationship(back_populates="patient", foreign_keys=[user_id])
-    medications: Mapped[list["MedicationReminderModel"]] = relationship(back_populates="patient")
-    triage_records: Mapped[list["TriageRecord"]] = relationship(back_populates="patient")
-    symptom_checks: Mapped[list["SymptomCheckRecord"]] = relationship(back_populates="patient")
-    vitals_records: Mapped[list["VitalsRecord"]] = relationship(back_populates="patient")
+    medications: Mapped[list["MedicationReminderModel"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    triage_records: Mapped[list["TriageRecord"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
+    symptom_checks: Mapped[list["SymptomCheckRecord"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    vitals_records: Mapped[list["VitalsRecord"]] = relationship(back_populates="patient", cascade="all, delete-orphan")

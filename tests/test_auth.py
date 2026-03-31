@@ -7,7 +7,7 @@ class TestRegister:
             "/api/v1/auth/register",
             json={
                 "email": "new@test.com",
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "New User",
             },
         )
@@ -25,7 +25,7 @@ class TestRegister:
             "/api/v1/auth/register",
             json={
                 "email": "dup@test.com",
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "Dup User",
             },
         )
@@ -47,7 +47,7 @@ class TestRegister:
         response = client.post(
             "/api/v1/auth/register",
             json={
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "No Email",
             },
         )
@@ -59,7 +59,7 @@ class TestRegister:
             "/api/v1/auth/register",
             json={
                 "email": "hacker@test.com",
-                "password": "securepass123",
+                "password": "Securepass123",
                 "full_name": "Hacker",
             },
         )
@@ -74,7 +74,7 @@ class TestLogin:
             "/api/v1/auth/login",
             json={
                 "email": "login@test.com",
-                "password": "testpass123",
+                "password": "Testpass123",
             },
         )
         assert response.status_code == 200
@@ -99,7 +99,7 @@ class TestLogin:
             "/api/v1/auth/login",
             json={
                 "email": "ghost@test.com",
-                "password": "testpass123",
+                "password": "Testpass123",
             },
         )
         assert response.status_code == 401
@@ -112,7 +112,7 @@ class TestLogin:
             "/api/v1/auth/login",
             json={
                 "email": "inactive@test.com",
-                "password": "testpass123",
+                "password": "Testpass123",
             },
         )
         assert response.status_code == 403
@@ -421,7 +421,7 @@ class TestDeactivateActivate:
             "/api/v1/auth/login",
             json={
                 "email": "blocked@test.com",
-                "password": "testpass123",
+                "password": "Testpass123",
             },
         )
         assert response.status_code == 403

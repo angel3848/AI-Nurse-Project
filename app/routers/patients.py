@@ -52,8 +52,9 @@ def list_patients(
     current_user: User = Depends(require_role("nurse", "doctor", "admin")),
 ) -> dict:
     """List all patients with pagination. Requires nurse, doctor, or admin role."""
-    total = db.query(Patient).count()
-    patients = db.query(Patient).offset(offset).limit(limit).all()
+    query = db.query(Patient).filter(Patient.is_deleted == False)  # noqa: E712
+    total = query.count()
+    patients = query.offset(offset).limit(limit).all()
     return {"patients": patients, "total": total}
 
 
@@ -64,7 +65,7 @@ def get_patient(
     current_user: User = Depends(get_current_user),
 ) -> Patient:
     """Get a patient by ID. Patients can only view their own record; nurses, doctors, and admins can view any."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    patient = db.query(Patient).filter(Patient.id == patient_id, Patient.is_deleted == False).first()  # noqa: E712
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
 
@@ -93,7 +94,7 @@ def update_patient(
     current_user: User = Depends(require_role("nurse", "doctor", "admin")),
 ) -> Patient:
     """Update a patient's information. Requires nurse, doctor, or admin role."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    patient = db.query(Patient).filter(Patient.id == patient_id, Patient.is_deleted == False).first()  # noqa: E712
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
 
@@ -122,19 +123,18 @@ def delete_patient(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ) -> None:
-    """Delete a patient. Requires admin role."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    """Soft-delete a patient. Requires admin role."""
+    patient = db.query(Patient).filter(Patient.id == patient_id, Patient.is_deleted == False).first()  # noqa: E712
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
-    patient_name = patient.full_name
-    db.delete(patient)
+    patient.is_deleted = True
     db.commit()
     log_action(
         db,
         action="delete",
         resource_type="patient",
         resource_id=patient_id,
-        detail=f"Deleted patient: {patient_name}",
+        detail=f"Soft-deleted patient: {patient.full_name}",
         user=current_user,
         ip_address=http_request.client.host if http_request.client else None,
     )
@@ -150,7 +150,7 @@ def get_patient_history(
     current_user: User = Depends(get_current_user),
 ) -> PatientHistoryResponse:
     """Get a patient's history of triage assessments and symptom checks."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    patient = db.query(Patient).filter(Patient.id == patient_id, Patient.is_deleted == False).first()  # noqa: E712
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
 

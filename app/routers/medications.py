@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.patient import Patient
 from app.models.user import User
 from app.schemas.medication import (
     MedicationListResponse,
@@ -52,6 +53,14 @@ def list_patient_medications(
     current_user: User = Depends(get_current_user),
 ) -> MedicationListResponse:
     """List all medications for a patient. Requires authentication."""
+    # Patients may only access their own medications
+    if current_user.role == "patient":
+        patient = db.query(Patient).filter(Patient.id == patient_id).first()
+        if patient is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        if patient.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     meds = get_patient_medications(db, patient_id)
     return MedicationListResponse(patient_id=patient_id, medications=meds, total=len(meds))
 

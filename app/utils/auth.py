@@ -16,6 +16,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 COOKIE_NAME = "access_token"
 
+# In-memory token blacklist (suitable for single-process dev; use Redis in production)
+_token_blacklist: set[str] = set()
+
+
+def blacklist_token(token: str) -> None:
+    """Add a token to the blacklist so it can no longer be used."""
+    _token_blacklist.add(token)
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -57,13 +65,20 @@ def clear_auth_cookie(response: Response) -> None:
     )
 
 
-def _extract_token(request: Request, bearer_token: Optional[str]) -> str:
-    """Extract JWT from cookie first, then fall back to Authorization header."""
+STATE_CHANGING_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+
+
+def _extract_token(request: Request, bearer_token: Optional[str]) -> tuple[str, bool]:
+    """Extract JWT from cookie first, then fall back to Authorization header.
+
+    Returns (token, from_cookie) so callers can enforce CSRF checks on
+    cookie-based auth.
+    """
     token = request.cookies.get(COOKIE_NAME)
     if token:
-        return token
+        return token, True
     if bearer_token:
-        return bearer_token
+        return bearer_token, False
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
@@ -81,7 +96,25 @@ def get_current_user(
         detail="Invalid or expired token",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    token = _extract_token(request, bearer_token)
+    token, from_cookie = _extract_token(request, bearer_token)
+
+    # Reject blacklisted tokens (logged-out or revoked)
+    if token in _token_blacklist:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # CSRF protection: cookie-based auth on state-changing requests must
+    # include the custom header to prove the request originated from our JS.
+    if from_cookie and request.method in STATE_CHANGING_METHODS:
+        if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="CSRF validation failed: missing X-Requested-With header",
+            )
+
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         user_id: str = payload.get("sub")

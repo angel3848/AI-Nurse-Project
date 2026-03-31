@@ -111,6 +111,11 @@ def get_vitals_history(
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
 
+    # Patients may only access their own vitals history
+    if current_user.role == "patient":
+        if patient.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     query = db.query(VitalsRecord).filter(VitalsRecord.patient_id == patient_id)
     total = query.count()
     records = query.order_by(VitalsRecord.recorded_at.desc()).offset(offset).limit(limit).all()
