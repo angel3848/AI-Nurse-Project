@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.triage import SymptomCheckRecord
+from app.models.user import User
+from app.utils.auth import get_current_user
 from app.schemas.symptom import (
     ConditionInfo,
     ConditionsListResponse,
@@ -15,7 +17,11 @@ router = APIRouter(prefix="/api/v1/symptoms", tags=["Symptoms"])
 
 
 @router.post("/check", response_model=SymptomCheckResponse)
-def symptom_check(request: SymptomCheckRequest, db: Session = Depends(get_db)) -> SymptomCheckResponse:
+def symptom_check(
+    request: SymptomCheckRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SymptomCheckResponse:
     """Analyze reported symptoms and suggest possible conditions."""
     result = check_symptoms(request)
 

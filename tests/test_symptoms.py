@@ -5,6 +5,7 @@ from app.services.symptom_checker import (
     score_to_probability,
 )
 from app.schemas.symptom import SymptomCheckRequest
+from tests.conftest import auth_header, create_test_user
 
 
 def make_request(overrides: dict | None = None) -> dict:
@@ -128,9 +129,13 @@ class TestDetermineUrgency:
 
 
 class TestSymptomEndpoint:
-    def test_valid_request(self, client):
+    def _headers(self, db):
+        user = create_test_user(db, role="patient")
+        return auth_header(user)
+
+    def test_valid_request(self, client, db):
         request = make_request({"symptoms": ["fever", "cough", "fatigue", "body_aches"]})
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         assert response.status_code == 200
         data = response.json()
         assert "possible_conditions" in data
@@ -138,41 +143,41 @@ class TestSymptomEndpoint:
         assert "urgency" in data
         assert "disclaimer" in data
 
-    def test_cardiac_emergency(self, client):
+    def test_cardiac_emergency(self, client, db):
         request = make_request({
             "symptoms": ["chest_pain", "shortness_of_breath", "sweating"],
             "severity": "severe",
             "duration_days": 1,
         })
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         data = response.json()
         assert data["urgency"] == "emergency"
         conditions = [c["condition"] for c in data["possible_conditions"]]
         assert "Possible Cardiac Event" in conditions
 
-    def test_mild_symptoms(self, client):
+    def test_mild_symptoms(self, client, db):
         request = make_request({"symptoms": ["cough", "runny_nose", "sore_throat"]})
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         data = response.json()
         conditions = [c["condition"] for c in data["possible_conditions"]]
         assert "Common Cold" in conditions
 
-    def test_no_matching_conditions(self, client):
+    def test_no_matching_conditions(self, client, db):
         request = make_request({"symptoms": ["hiccups"]})
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         data = response.json()
         assert data["possible_conditions"] == []
         assert data["urgency"] == "low"
 
-    def test_disclaimer_always_present(self, client):
+    def test_disclaimer_always_present(self, client, db):
         request = make_request()
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         data = response.json()
         assert "not a medical diagnosis" in data["disclaimer"]
 
-    def test_conditions_have_required_fields(self, client):
+    def test_conditions_have_required_fields(self, client, db):
         request = make_request({"symptoms": ["fever", "cough", "fatigue"]})
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         data = response.json()
         for condition in data["possible_conditions"]:
             assert "condition" in condition
@@ -180,17 +185,22 @@ class TestSymptomEndpoint:
             assert "description" in condition
             assert "category" in condition
 
-    def test_validation_empty_symptoms(self, client):
+    def test_validation_empty_symptoms(self, client, db):
         request = make_request({"symptoms": []})
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         assert response.status_code == 422
 
-    def test_validation_invalid_severity(self, client):
+    def test_validation_invalid_severity(self, client, db):
         request = make_request({"severity": "extreme"})
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         assert response.status_code == 422
 
-    def test_validation_zero_duration(self, client):
+    def test_validation_zero_duration(self, client, db):
         request = make_request({"duration_days": 0})
-        response = client.post("/api/v1/symptoms/check", json=request)
+        response = client.post("/api/v1/symptoms/check", json=request, headers=self._headers(db))
         assert response.status_code == 422
+
+    def test_unauthenticated_rejected(self, client):
+        request = make_request()
+        response = client.post("/api/v1/symptoms/check", json=request)
+        assert response.status_code == 401

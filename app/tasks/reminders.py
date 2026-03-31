@@ -14,12 +14,15 @@ from app.services.notifier import build_reminder_email, send_email
 logger = logging.getLogger(__name__)
 
 
+_engine = create_engine(
+    settings.database_url,
+    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
+)
+_SessionFactory = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)
+
+
 def get_session():
-    engine = create_engine(
-        settings.database_url,
-        connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
-    )
-    return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
+    return _SessionFactory()
 
 
 @celery.task(name="app.tasks.reminders.check_and_send_reminders")
@@ -81,8 +84,8 @@ def send_reminder_notification(
             logger.warning("Patient %s not found for reminder %s", patient_id, reminder_id)
             return {"delivered": False, "reason": "patient_not_found"}
 
-        # Find user by matching name (in production, patients would have a user_id FK)
-        user = db.query(User).filter(User.full_name == patient.full_name).first()
+        # Use the user_id FK to find the associated user
+        user = db.query(User).filter(User.id == patient.user_id).first() if patient.user_id else None
         to_email = user.email if user else None
 
         subject, body_html, body_text = build_reminder_email(medication_name, dosage, instructions)

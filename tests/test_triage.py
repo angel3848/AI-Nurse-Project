@@ -5,6 +5,7 @@ from app.services.triage_engine import (
     assess_vitals,
     apply_age_modifier,
 )
+from tests.conftest import auth_header, create_test_user
 
 NORMAL_VITALS = {
     "heart_rate": 75,
@@ -183,8 +184,12 @@ class TestAgeModifier:
 
 
 class TestTriageEndpoint:
-    def test_non_urgent_case(self, client):
-        response = client.post("/api/v1/triage", json=make_request())
+    def _headers(self, db):
+        user = create_test_user(db, role="nurse")
+        return auth_header(user)
+
+    def test_non_urgent_case(self, client, db):
+        response = client.post("/api/v1/triage", json=make_request(), headers=self._headers(db))
         assert response.status_code == 200
         data = response.json()
         assert data["priority_label"] == "Semi-Urgent"
@@ -192,61 +197,61 @@ class TestTriageEndpoint:
         assert data["patient_name"] == "John Doe"
         assert "vitals_summary" in data
 
-    def test_emergency_chest_pain(self, client):
+    def test_emergency_chest_pain(self, client, db):
         request = make_request({
             "chief_complaint": "Severe chest pain",
             "symptoms": ["chest_pain", "difficulty_breathing", "sweating"],
             "pain_scale": 9,
             "vitals": {**NORMAL_VITALS, "heart_rate": 135, "oxygen_saturation": 88},
         })
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         assert response.status_code == 200
         data = response.json()
         assert data["priority_level"] <= 2
         assert data["priority_color"] in ("red", "orange")
 
-    def test_critical_cardiac_arrest(self, client):
+    def test_critical_cardiac_arrest(self, client, db):
         request = make_request({
             "symptoms": ["cardiac_arrest"],
             "pain_scale": 0,
             "vitals": {**NORMAL_VITALS, "heart_rate": 30, "blood_pressure_systolic": 60},
         })
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         data = response.json()
         assert data["priority_level"] == 1
         assert data["priority_label"] == "Resuscitation"
 
-    def test_pediatric_patient_bump(self, client):
+    def test_pediatric_patient_bump(self, client, db):
         request = make_request({"age": 3, "pain_scale": 5})
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         data = response.json()
         assert data["priority_level"] <= 3
         assert "pediatric_patient" in data["flags"]
 
-    def test_geriatric_patient_bump(self, client):
+    def test_geriatric_patient_bump(self, client, db):
         request = make_request({"age": 80, "pain_scale": 5})
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         data = response.json()
         assert "geriatric_patient" in data["flags"]
 
-    def test_validation_empty_symptoms(self, client):
+    def test_validation_empty_symptoms(self, client, db):
         request = make_request({"symptoms": []})
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         assert response.status_code == 422
 
-    def test_validation_invalid_pain_scale(self, client):
+    def test_validation_invalid_pain_scale(self, client, db):
         request = make_request({"pain_scale": 15})
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         assert response.status_code == 422
 
-    def test_validation_missing_vitals(self, client):
+    def test_validation_missing_vitals(self, client, db):
         request = make_request()
         del request["vitals"]
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         assert response.status_code == 422
 
-    def test_vitals_summary_present(self, client):
-        response = client.post("/api/v1/triage", json=make_request())
+    def test_vitals_summary_present(self, client, db):
+        response = client.post("/api/v1/triage", json=make_request(), headers=self._headers(db))
         data = response.json()
         summary = data["vitals_summary"]
         assert "heart_rate" in summary
@@ -254,10 +259,14 @@ class TestTriageEndpoint:
         assert "temperature" in summary
         assert "oxygen_saturation" in summary
 
-    def test_flags_are_unique(self, client):
+    def test_flags_are_unique(self, client, db):
         request = make_request({
             "vitals": {**NORMAL_VITALS, "heart_rate": 160, "oxygen_saturation": 80},
         })
-        response = client.post("/api/v1/triage", json=request)
+        response = client.post("/api/v1/triage", json=request, headers=self._headers(db))
         data = response.json()
         assert len(data["flags"]) == len(set(data["flags"]))
+
+    def test_unauthenticated_rejected(self, client):
+        response = client.post("/api/v1/triage", json=make_request())
+        assert response.status_code == 401

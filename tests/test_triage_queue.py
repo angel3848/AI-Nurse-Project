@@ -30,7 +30,7 @@ def setup_with_triage(client, db, chief_complaint="Headache", pain_scale=3):
         "vitals": NORMAL_VITALS,
         "pain_scale": pain_scale,
         "age": 35,
-    })
+    }, headers=headers)
     tid = t_resp.json()["id"]
     return nurse, headers, pid, tid
 
@@ -63,7 +63,7 @@ class TestTriageQueue:
             "vitals": NORMAL_VITALS,
             "pain_scale": 8,
             "age": 55,
-        })
+        }, headers=headers2)
 
         response = client.get("/api/v1/triage/queue", headers=headers)
         data = response.json()
@@ -91,7 +91,7 @@ class TestTriageQueue:
                 "vitals": NORMAL_VITALS,
                 "pain_scale": pain,
                 "age": 35,
-            })
+            }, headers=headers)
 
         response = client.get("/api/v1/triage/queue", headers=headers)
         levels = [item["priority_level"] for item in response.json()["queue"]]

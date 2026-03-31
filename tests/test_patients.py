@@ -66,6 +66,54 @@ class TestGetPatient:
         response = client.get("/api/v1/patients/nonexistent-id", headers=auth_header(user))
         assert response.status_code == 404
 
+    def test_patient_user_can_view_own_record(self, client, db):
+        """A patient-role user can view their own linked patient record."""
+        nurse = create_test_user(db, role="nurse")
+        patient_user = create_test_user(db, role="patient", email="mypatient@test.com")
+        headers = auth_header(nurse)
+        create = client.post("/api/v1/patients", json={
+            "full_name": "Own Patient",
+            "date_of_birth": "1990-05-15",
+            "gender": "male",
+            "user_id": patient_user.id,
+        }, headers=headers)
+        patient_id = create.json()["id"]
+        response = client.get(f"/api/v1/patients/{patient_id}", headers=auth_header(patient_user))
+        assert response.status_code == 200
+        assert response.json()["full_name"] == "Own Patient"
+        assert response.json()["user_id"] == patient_user.id
+
+    def test_patient_user_cannot_view_other_record(self, client, db):
+        """A patient-role user cannot view another patient's record."""
+        nurse = create_test_user(db, role="nurse")
+        patient_user = create_test_user(db, role="patient", email="mypatient@test.com")
+        other_user = create_test_user(db, role="patient", email="other@test.com")
+        headers = auth_header(nurse)
+        create = client.post("/api/v1/patients", json={
+            "full_name": "Other Patient",
+            "date_of_birth": "1990-05-15",
+            "gender": "male",
+            "user_id": other_user.id,
+        }, headers=headers)
+        patient_id = create.json()["id"]
+        response = client.get(f"/api/v1/patients/{patient_id}", headers=auth_header(patient_user))
+        assert response.status_code == 403
+
+    def test_nurse_can_view_any_patient(self, client, db):
+        """A nurse can view any patient record regardless of user_id."""
+        nurse = create_test_user(db, role="nurse")
+        patient_user = create_test_user(db, role="patient", email="linked@test.com")
+        headers = auth_header(nurse)
+        create = client.post("/api/v1/patients", json={
+            "full_name": "Linked Patient",
+            "date_of_birth": "1990-05-15",
+            "gender": "male",
+            "user_id": patient_user.id,
+        }, headers=headers)
+        patient_id = create.json()["id"]
+        response = client.get(f"/api/v1/patients/{patient_id}", headers=headers)
+        assert response.status_code == 200
+
 
 class TestListPatients:
     def test_list_empty(self, client, db):

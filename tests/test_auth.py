@@ -159,8 +159,9 @@ class TestRoleBasedAccess:
         response = client.delete(f"/api/v1/patients/{pid}", headers=auth_header(admin))
         assert response.status_code == 204
 
-    def test_patient_can_view_single_patient(self, client, db):
+    def test_patient_can_view_own_record(self, client, db):
         nurse = create_test_user(db, role="nurse", email="nurse@test.com")
+        patient_user = create_test_user(db, role="patient", email="viewer@test.com")
         create_resp = client.post("/api/v1/patients", json={
             "full_name": "Viewable",
             "date_of_birth": "1990-01-01",
@@ -168,9 +169,27 @@ class TestRoleBasedAccess:
         }, headers=auth_header(nurse))
         pid = create_resp.json()["id"]
 
-        patient_user = create_test_user(db, role="patient", email="viewer@test.com")
+        # Link the patient record to the user
+        from app.models.patient import Patient
+        patient_record = db.query(Patient).filter(Patient.id == pid).first()
+        patient_record.user_id = patient_user.id
+        db.commit()
+
         response = client.get(f"/api/v1/patients/{pid}", headers=auth_header(patient_user))
         assert response.status_code == 200
+
+    def test_patient_cannot_view_other_patient(self, client, db):
+        nurse = create_test_user(db, role="nurse", email="nurse@test.com")
+        create_resp = client.post("/api/v1/patients", json={
+            "full_name": "Other Patient",
+            "date_of_birth": "1990-01-01",
+            "gender": "male",
+        }, headers=auth_header(nurse))
+        pid = create_resp.json()["id"]
+
+        patient_user = create_test_user(db, role="patient", email="viewer@test.com")
+        response = client.get(f"/api/v1/patients/{pid}", headers=auth_header(patient_user))
+        assert response.status_code == 403
 
     def test_patient_cannot_list_all_patients(self, client, db):
         user = create_test_user(db, role="patient")

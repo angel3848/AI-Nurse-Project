@@ -24,6 +24,7 @@ def setup_patient(client, db):
 
 class TestTriagePersistence:
     def test_triage_without_patient_id(self, client, db):
+        nurse = create_test_user(db, role="nurse", email="triage-anon@test.com")
         response = client.post("/api/v1/triage", json={
             "patient_name": "Anonymous",
             "chief_complaint": "Headache",
@@ -32,7 +33,7 @@ class TestTriagePersistence:
             "vitals": NORMAL_VITALS,
             "pain_scale": 3,
             "age": 35,
-        })
+        }, headers=auth_header(nurse))
         assert response.status_code == 200
         assert response.json()["id"] is None
 
@@ -47,19 +48,20 @@ class TestTriagePersistence:
             "vitals": NORMAL_VITALS,
             "pain_scale": 7,
             "age": 35,
-        })
+        }, headers=headers)
         assert response.status_code == 200
         assert response.json()["id"] is not None
 
 
 class TestSymptomPersistence:
     def test_symptom_without_patient_id(self, client, db):
+        user = create_test_user(db, role="patient", email="symptom-anon@test.com")
         response = client.post("/api/v1/symptoms/check", json={
             "symptoms": ["headache", "fatigue"],
             "duration_days": 3,
             "severity": "mild",
             "age": 35,
-        })
+        }, headers=auth_header(user))
         assert response.status_code == 200
         assert response.json()["id"] is None
 
@@ -71,7 +73,7 @@ class TestSymptomPersistence:
             "duration_days": 2,
             "severity": "moderate",
             "age": 35,
-        })
+        }, headers=headers)
         assert response.status_code == 200
         assert response.json()["id"] is not None
 
@@ -97,7 +99,7 @@ class TestPatientHistory:
             "vitals": NORMAL_VITALS,
             "pain_scale": 6,
             "age": 35,
-        })
+        }, headers=headers)
         response = client.get(f"/api/v1/patients/{pid}/history", headers=headers)
         data = response.json()
         assert data["total"] == 1
@@ -114,7 +116,7 @@ class TestPatientHistory:
             "duration_days": 2,
             "severity": "moderate",
             "age": 35,
-        })
+        }, headers=headers)
         response = client.get(f"/api/v1/patients/{pid}/history", headers=headers)
         data = response.json()
         assert data["total"] == 1
@@ -152,7 +154,7 @@ class TestPatientHistory:
             "vitals": NORMAL_VITALS,
             "pain_scale": 2,
             "age": 35,
-        })
+        }, headers=headers)
         client.post("/api/v1/metrics/vitals", json={
             "patient_id": pid,
             "heart_rate": 72,
@@ -179,7 +181,7 @@ class TestPatientHistory:
             "vitals": NORMAL_VITALS,
             "pain_scale": 4,
             "age": 35,
-        })
+        }, headers=headers)
         # Add symptom check
         client.post("/api/v1/symptoms/check", json={
             "patient_id": pid,
@@ -187,7 +189,7 @@ class TestPatientHistory:
             "duration_days": 1,
             "severity": "moderate",
             "age": 35,
-        })
+        }, headers=headers)
         # Add vitals
         client.post("/api/v1/metrics/vitals", json={
             "patient_id": pid,
@@ -216,14 +218,14 @@ class TestPatientHistory:
             "vitals": NORMAL_VITALS,
             "pain_scale": 2,
             "age": 35,
-        })
+        }, headers=headers)
         client.post("/api/v1/symptoms/check", json={
             "patient_id": pid,
             "symptoms": ["headache", "nausea", "light_sensitivity"],
             "duration_days": 1,
             "severity": "severe",
             "age": 35,
-        })
+        }, headers=headers)
         # Filter triage only
         response = client.get(f"/api/v1/patients/{pid}/history?record_type=triage", headers=headers)
         data = response.json()
@@ -248,7 +250,7 @@ class TestPatientHistory:
                 "vitals": NORMAL_VITALS,
                 "pain_scale": 2,
                 "age": 35,
-            })
+            }, headers=headers)
         response = client.get(f"/api/v1/patients/{pid}/history?limit=2&offset=0", headers=headers)
         data = response.json()
         assert data["total"] == 5
@@ -274,7 +276,7 @@ class TestPatientHistory:
             "vitals": {**NORMAL_VITALS, "temperature_c": 39.5},
             "pain_scale": 4,
             "age": 35,
-        })
+        }, headers=headers)
         response = client.get(f"/api/v1/patients/{pid}/history", headers=headers)
         details = response.json()["records"][0]["details"]
         assert "vitals" in details

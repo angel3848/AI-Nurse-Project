@@ -14,13 +14,17 @@ from app.schemas.triage import (
     TriageResponse,
 )
 from app.services.triage_engine import perform_triage
-from app.utils.auth import require_role
+from app.utils.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/v1/triage", tags=["Triage"])
 
 
 @router.post("", response_model=TriageResponse)
-def create_triage(request: TriageRequest, db: Session = Depends(get_db)) -> TriageResponse:
+def create_triage(
+    request: TriageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TriageResponse:
     """Submit a triage assessment and receive a priority classification."""
     result = perform_triage(request)
 

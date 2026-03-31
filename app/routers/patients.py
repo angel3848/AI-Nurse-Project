@@ -57,10 +57,16 @@ def get_patient(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Patient:
-    """Get a patient by ID. Requires authentication."""
+    """Get a patient by ID. Patients can only view their own record; nurses, doctors, and admins can view any."""
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
+
+    # Patients may only access their own record
+    if current_user.role == "patient":
+        if patient.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     log_action(db, action="read", resource_type="patient", resource_id=patient_id,
                detail=f"Viewed patient: {patient.full_name}", user=current_user)
     return patient
@@ -123,6 +129,11 @@ def get_patient_history(
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
+
+    # Patients may only access their own history
+    if current_user.role == "patient":
+        if patient.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
     records: list[HistoryRecord] = []
 

@@ -13,6 +13,7 @@ class PatientCreate(BaseModel):
     allergies: str | None = Field(None, max_length=1000)
     emergency_contact_name: str | None = Field(None, max_length=200)
     emergency_contact_phone: str | None = Field(None, max_length=20)
+    user_id: str | None = Field(None, max_length=36)
 
 
 class PatientUpdate(BaseModel):
@@ -23,6 +24,7 @@ class PatientUpdate(BaseModel):
     allergies: str | None = Field(None, max_length=1000)
     emergency_contact_name: str | None = Field(None, max_length=200)
     emergency_contact_phone: str | None = Field(None, max_length=20)
+    user_id: str | None = Field(None, max_length=36)
 
 
 class PatientResponse(BaseModel):
@@ -36,6 +38,7 @@ class PatientResponse(BaseModel):
     allergies: str | None
     emergency_contact_name: str | None
     emergency_contact_phone: str | None
+    user_id: str | None
     created_at: datetime
     updated_at: datetime
 

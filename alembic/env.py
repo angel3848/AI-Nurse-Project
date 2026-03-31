@@ -7,7 +7,15 @@ from alembic import context
 
 from app.config import settings
 from app.database import Base
-from app.models import Patient, MedicationReminderModel, TriageRecord, SymptomCheckRecord  # noqa: F401
+from app.models import (  # noqa: F401
+    AuditLog,
+    MedicationReminderModel,
+    Patient,
+    SymptomCheckRecord,
+    TriageRecord,
+    User,
+    VitalsRecord,
+)
 
 config = context.config
 

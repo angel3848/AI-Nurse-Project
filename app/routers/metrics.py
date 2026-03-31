@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,7 @@ from app.models.vitals import VitalsRecord
 from app.schemas.metrics import (
     BMIRequest,
     BMIResponse,
+    VitalReading,
     VitalsHistoryResponse,
     VitalsRecordRequest,
     VitalsRecordResponse,
@@ -48,6 +51,11 @@ def record_vitals(
         blood_glucose_mg_dl=request.blood_glucose_mg_dl,
     )
 
+    assessments_data = {
+        "readings": {k: {"value": v.value, "status": v.status} for k, v in readings.items()},
+        "alerts": alerts,
+    }
+
     record = VitalsRecord(
         patient_id=request.patient_id,
         recorded_by=current_user.id,
@@ -59,6 +67,7 @@ def record_vitals(
         oxygen_saturation=request.oxygen_saturation,
         blood_glucose_mg_dl=request.blood_glucose_mg_dl,
         notes=request.notes,
+        assessments=json.dumps(assessments_data),
     )
     db.add(record)
     db.commit()
@@ -104,15 +113,21 @@ def get_vitals_history(
 
     responses = []
     for r in records:
-        readings, alerts = assess_all_vitals(
-            heart_rate=r.heart_rate,
-            bp_systolic=r.bp_systolic,
-            bp_diastolic=r.bp_diastolic,
-            temperature_c=r.temperature_c,
-            respiratory_rate=r.respiratory_rate,
-            oxygen_saturation=r.oxygen_saturation,
-            blood_glucose_mg_dl=r.blood_glucose_mg_dl,
-        )
+        if r.assessments:
+            stored = json.loads(r.assessments)
+            readings = {k: VitalReading(**v) for k, v in stored["readings"].items()}
+            alerts = stored["alerts"]
+        else:
+            # Fallback for records created before assessments column existed
+            readings, alerts = assess_all_vitals(
+                heart_rate=r.heart_rate,
+                bp_systolic=r.bp_systolic,
+                bp_diastolic=r.bp_diastolic,
+                temperature_c=r.temperature_c,
+                respiratory_rate=r.respiratory_rate,
+                oxygen_saturation=r.oxygen_saturation,
+                blood_glucose_mg_dl=r.blood_glucose_mg_dl,
+            )
         responses.append(VitalsRecordResponse(
             id=r.id,
             patient_id=r.patient_id,

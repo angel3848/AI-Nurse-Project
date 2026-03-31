@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, String, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -11,6 +11,7 @@ class Patient(Base):
     __tablename__ = "patients"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     date_of_birth: Mapped[date] = mapped_column(Date, nullable=False)
     gender: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -23,6 +24,7 @@ class Patient(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    user: Mapped["User"] = relationship(back_populates="patient", foreign_keys=[user_id])
     medications: Mapped[list["MedicationReminderModel"]] = relationship(back_populates="patient")
     triage_records: Mapped[list["TriageRecord"]] = relationship(back_populates="patient")
     symptom_checks: Mapped[list["SymptomCheckRecord"]] = relationship(back_populates="patient")
