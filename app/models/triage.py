@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, JSON, String, ForeignKey, func
+from sqlalchemy import DateTime, Float, Index, Integer, JSON, String, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -9,6 +9,10 @@ from app.database import Base
 
 class TriageRecord(Base):
     __tablename__ = "triage_records"
+    __table_args__ = (
+        Index("ix_triage_status_priority_created", "status", "priority_level", "created_at"),
+        Index("ix_triage_created_at", "created_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("patients.id"), nullable=False, index=True)
@@ -35,6 +39,7 @@ class TriageRecord(Base):
 
 class SymptomCheckRecord(Base):
     __tablename__ = "symptom_check_records"
+    __table_args__ = (Index("ix_symptom_check_created_at", "created_at"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("patients.id"), nullable=False, index=True)
