@@ -1,4 +1,4 @@
-from app.services.bmi_calculator import calculate_bmi, get_bmi_category, get_healthy_weight_range
+from app.services.bmi_calculator import calculate_bmi, get_bmi_category, get_healthy_weight_range, imperial_to_metric
 
 
 class TestCalculateBMI:
@@ -69,6 +69,20 @@ class TestGetHealthyWeightRange:
         assert result.max_kg == 99.6
 
 
+class TestImperialConversion:
+    def test_5ft10_to_cm(self):
+        height_cm, _ = imperial_to_metric(5, 10, 154)
+        assert round(height_cm, 1) == 177.8
+
+    def test_weight_lbs_to_kg(self):
+        _, weight_kg = imperial_to_metric(5, 10, 154)
+        assert round(weight_kg, 1) == 69.9
+
+    def test_6ft0_no_inches(self):
+        height_cm, _ = imperial_to_metric(6, 0, 180)
+        assert round(height_cm, 1) == 182.9
+
+
 class TestBMIEndpoint:
     def test_valid_request(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 175, "weight_kg": 70})
@@ -108,6 +122,52 @@ class TestBMIEndpoint:
     def test_extreme_weight_rejected(self, client):
         response = client.post("/api/v1/metrics/bmi", json={"height_cm": 175, "weight_kg": 800})
         assert response.status_code == 422
+
+    def test_imperial_valid(self, client):
+        response = client.post(
+            "/api/v1/metrics/bmi",
+            json={
+                "unit_system": "imperial",
+                "height_ft": 5,
+                "height_in": 10,
+                "weight_lbs": 154,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["unit_system"] == "imperial"
+        assert data["category"] == "normal"
+        assert data["healthy_weight_range"]["min_lbs"] is not None
+        assert data["healthy_weight_range"]["max_lbs"] is not None
+
+    def test_imperial_overweight(self, client):
+        response = client.post(
+            "/api/v1/metrics/bmi",
+            json={
+                "unit_system": "imperial",
+                "height_ft": 5,
+                "height_in": 10,
+                "weight_lbs": 190,
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["category"] == "overweight"
+
+    def test_imperial_no_height(self, client):
+        response = client.post(
+            "/api/v1/metrics/bmi",
+            json={
+                "unit_system": "imperial",
+                "weight_lbs": 154,
+            },
+        )
+        assert response.status_code == 422
+
+    def test_metric_default(self, client):
+        response = client.post("/api/v1/metrics/bmi", json={"height_cm": 175, "weight_kg": 70})
+        data = response.json()
+        assert data["unit_system"] == "metric"
+        assert data["healthy_weight_range"]["min_lbs"] is None
 
 
 class TestHealthEndpoint:

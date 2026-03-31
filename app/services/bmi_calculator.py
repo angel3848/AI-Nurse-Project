@@ -56,14 +56,41 @@ def get_healthy_weight_range(height_cm: float) -> HealthyWeightRange:
     )
 
 
+LBS_PER_KG = 2.20462
+CM_PER_INCH = 2.54
+
+
+def imperial_to_metric(
+    height_ft: float | None, height_in: float | None, weight_lbs: float | None
+) -> tuple[float, float]:
+    total_inches = (height_ft or 0) * 12 + (height_in or 0)
+    height_cm = total_inches * CM_PER_INCH
+    weight_kg = (weight_lbs or 0) / LBS_PER_KG
+    return height_cm, weight_kg
+
+
 def assess_bmi(request: BMIRequest) -> BMIResponse:
-    bmi = calculate_bmi(request.height_cm, request.weight_kg)
+    if request.unit_system == "imperial":
+        height_cm, weight_kg = imperial_to_metric(request.height_ft, request.height_in, request.weight_lbs)
+    else:
+        height_cm = request.height_cm or 0
+        weight_kg = request.weight_kg or 0
+
+    if height_cm <= 0 or weight_kg <= 0:
+        raise ValueError("Height and weight must be positive values")
+
+    bmi = calculate_bmi(height_cm, weight_kg)
     category, interpretation = get_bmi_category(bmi)
-    healthy_range = get_healthy_weight_range(request.height_cm)
+    healthy_range = get_healthy_weight_range(height_cm)
+
+    if request.unit_system == "imperial":
+        healthy_range.min_lbs = round(healthy_range.min_kg * LBS_PER_KG, 1)
+        healthy_range.max_lbs = round(healthy_range.max_kg * LBS_PER_KG, 1)
 
     return BMIResponse(
         bmi=bmi,
         category=category,
         healthy_weight_range=healthy_range,
         interpretation=interpretation,
+        unit_system=request.unit_system,
     )

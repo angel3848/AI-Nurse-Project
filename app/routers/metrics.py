@@ -25,8 +25,11 @@ router = APIRouter(prefix="/api/v1/metrics", tags=["Health Metrics"])
 
 @router.post("/bmi", response_model=BMIResponse)
 def calculate_bmi(request: BMIRequest) -> BMIResponse:
-    """Calculate BMI from height and weight, returning category and interpretation."""
-    return assess_bmi(request)
+    """Calculate BMI from height and weight. Supports metric (cm/kg) and imperial (ft+in/lbs)."""
+    try:
+        return assess_bmi(request)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.post("/vitals", response_model=VitalsRecordResponse, status_code=201)

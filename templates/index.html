@@ -126,13 +126,38 @@
             <h3 class="section-title">BMI Calculator</h3>
             <form id="form-bmi" aria-label="BMI calculator form">
                 <div class="form-group">
-                    <label for="bmi-height">Height (cm)</label>
-                    <input type="number" id="bmi-height" required min="1" max="300" step="0.1" placeholder="175">
+                    <label>Unit System</label>
+                    <div style="display:flex;gap:8px;margin-bottom:4px">
+                        <button type="button" id="bmi-unit-metric" class="btn btn-primary btn-sm" onclick="setBMIUnit('metric')" style="flex:1">Metric (cm/kg)</button>
+                        <button type="button" id="bmi-unit-imperial" class="btn btn-outline btn-sm" onclick="setBMIUnit('imperial')" style="flex:1">Imperial (ft/lbs)</button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="bmi-weight">Weight (kg)</label>
-                    <input type="number" id="bmi-weight" required min="1" max="700" step="0.1" placeholder="70">
+                <div id="bmi-metric-fields">
+                    <div class="form-group">
+                        <label for="bmi-height">Height (cm)</label>
+                        <input type="number" id="bmi-height" min="1" max="300" step="0.1" placeholder="175">
+                    </div>
+                    <div class="form-group">
+                        <label for="bmi-weight">Weight (kg)</label>
+                        <input type="number" id="bmi-weight" min="1" max="700" step="0.1" placeholder="70">
+                    </div>
                 </div>
+                <div id="bmi-imperial-fields" class="hidden">
+                    <div class="form-group">
+                        <label>Height</label>
+                        <div style="display:flex;gap:8px">
+                            <input type="number" id="bmi-height-ft" min="1" max="9" step="1" placeholder="5" style="flex:1">
+                            <span style="align-self:center;color:var(--gray-500)">ft</span>
+                            <input type="number" id="bmi-height-in" min="0" max="11" step="0.1" placeholder="10" style="flex:1">
+                            <span style="align-self:center;color:var(--gray-500)">in</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="bmi-weight-lbs">Weight (lbs)</label>
+                        <input type="number" id="bmi-weight-lbs" min="1" max="1500" step="0.1" placeholder="154">
+                    </div>
+                </div>
+                <input type="hidden" id="bmi-unit-system" value="metric">
                 <button type="submit" class="btn btn-primary">Calculate BMI</button>
             </form>
             <div id="bmi-result" class="result-panel hidden"></div>

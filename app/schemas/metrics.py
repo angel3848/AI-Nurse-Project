@@ -4,13 +4,19 @@ from pydantic import BaseModel, Field
 
 
 class BMIRequest(BaseModel):
-    height_cm: float = Field(..., gt=0, le=300, description="Height in centimeters")
-    weight_kg: float = Field(..., gt=0, le=700, description="Weight in kilograms")
+    height_cm: float | None = Field(None, gt=0, le=300, description="Height in centimeters")
+    weight_kg: float | None = Field(None, gt=0, le=700, description="Weight in kilograms")
+    height_ft: float | None = Field(None, gt=0, le=9, description="Height feet (imperial)")
+    height_in: float | None = Field(None, ge=0, lt=12, description="Height inches (imperial)")
+    weight_lbs: float | None = Field(None, gt=0, le=1500, description="Weight in pounds (imperial)")
+    unit_system: str = Field("metric", pattern="^(metric|imperial)$", description="Unit system: metric or imperial")
 
 
 class HealthyWeightRange(BaseModel):
     min_kg: float
     max_kg: float
+    min_lbs: float | None = None
+    max_lbs: float | None = None
 
 
 class BMIResponse(BaseModel):
@@ -18,6 +24,7 @@ class BMIResponse(BaseModel):
     category: str
     healthy_weight_range: HealthyWeightRange
     interpretation: str
+    unit_system: str = "metric"
 
 
 class VitalsRecordRequest(BaseModel):

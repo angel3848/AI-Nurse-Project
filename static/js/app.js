@@ -202,17 +202,49 @@ function isStaff() {
 }
 
 // --- BMI ---
+function setBMIUnit(unit) {
+    $('#bmi-unit-system').value = unit;
+    const metricBtn = $('#bmi-unit-metric');
+    const imperialBtn = $('#bmi-unit-imperial');
+    const metricFields = $('#bmi-metric-fields');
+    const imperialFields = $('#bmi-imperial-fields');
+    if (unit === 'imperial') {
+        imperialBtn.className = 'btn btn-primary btn-sm';
+        metricBtn.className = 'btn btn-outline btn-sm';
+        metricFields.classList.add('hidden');
+        imperialFields.classList.remove('hidden');
+    } else {
+        metricBtn.className = 'btn btn-primary btn-sm';
+        imperialBtn.className = 'btn btn-outline btn-sm';
+        imperialFields.classList.add('hidden');
+        metricFields.classList.remove('hidden');
+    }
+}
+
 async function handleBMI(e) {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
     setLoading(btn, true);
     try {
-        const data = await api('/metrics/bmi', {
-            method: 'POST',
-            body: JSON.stringify({
+        const unitSystem = $('#bmi-unit-system').value;
+        let body;
+        if (unitSystem === 'imperial') {
+            body = {
+                unit_system: 'imperial',
+                height_ft: parseFloat($('#bmi-height-ft').value),
+                height_in: parseFloat($('#bmi-height-in').value) || 0,
+                weight_lbs: parseFloat($('#bmi-weight-lbs').value),
+            };
+        } else {
+            body = {
+                unit_system: 'metric',
                 height_cm: parseFloat($('#bmi-height').value),
                 weight_kg: parseFloat($('#bmi-weight').value),
-            }),
+            };
+        }
+        const data = await api('/metrics/bmi', {
+            method: 'POST',
+            body: JSON.stringify(body),
         });
         const result = $('#bmi-result');
         const colorMap = {
@@ -221,13 +253,16 @@ async function handleBMI(e) {
             'overweight': 'var(--warning)', 'obese class I': 'var(--danger)',
             'obese class II': 'var(--danger)', 'obese class III': 'var(--danger)',
         };
+        const rangeText = data.unit_system === 'imperial' && data.healthy_weight_range.min_lbs
+            ? `${data.healthy_weight_range.min_lbs}–${data.healthy_weight_range.max_lbs} lbs`
+            : `${data.healthy_weight_range.min_kg}–${data.healthy_weight_range.max_kg} kg`;
         result.innerHTML = `
             <div class="bmi-result">
                 <div class="bmi-value" style="color:${colorMap[data.category] || 'inherit'}">${data.bmi}</div>
                 <div class="bmi-category">${data.category}</div>
                 <p style="margin-top:12px;color:var(--gray-500);font-size:14px">${data.interpretation}</p>
                 <p style="margin-top:8px;font-size:13px;color:var(--gray-500)">
-                    Healthy range: ${data.healthy_weight_range.min_kg}–${data.healthy_weight_range.max_kg} kg
+                    Healthy range: ${rangeText}
                 </p>
             </div>
         `;
