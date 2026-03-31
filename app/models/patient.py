@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, JSON, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -18,7 +18,7 @@ class Patient(Base):
     blood_type: Mapped[str | None] = mapped_column(String(5), nullable=True)
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
-    allergies: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    allergies: Mapped[list | None] = mapped_column(JSON, nullable=True)
     emergency_contact_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     emergency_contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

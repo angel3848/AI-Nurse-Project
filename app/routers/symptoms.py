@@ -1,6 +1,9 @@
+import logging
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models.triage import SymptomCheckRecord
 from app.models.user import User
@@ -13,6 +16,8 @@ from app.schemas.symptom import (
 )
 from app.services.symptom_checker import CONDITION_DATABASE, check_symptoms
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1/symptoms", tags=["Symptoms"])
 
 
@@ -24,6 +29,26 @@ def symptom_check(
 ) -> SymptomCheckResponse:
     """Analyze reported symptoms and suggest possible conditions."""
     result = check_symptoms(request)
+
+    if settings.ai_analysis_enabled and settings.anthropic_api_key:
+        try:
+            from app.services.ai_analyzer import analyze_symptoms_with_ai
+
+            rule_based_results = {
+                "possible_conditions": [c.model_dump() for c in result.possible_conditions],
+                "urgency": result.urgency,
+                "recommended_action": result.recommended_action,
+            }
+            result.ai_analysis = analyze_symptoms_with_ai(
+                symptoms=request.symptoms,
+                duration_days=request.duration_days,
+                severity=request.severity,
+                age=request.age,
+                additional_info=request.additional_info,
+                rule_based_results=rule_based_results,
+            )
+        except Exception:
+            logger.exception("AI analysis failed, continuing without it")
 
     if request.patient_id:
         record = SymptomCheckRecord(

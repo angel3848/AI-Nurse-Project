@@ -16,6 +16,7 @@ from app.models import audit, medication, patient, triage, user, vitals  # noqa:
 from app.routers import audit as audit_router
 from app.routers import auth, medications, metrics, patients, symptoms
 from app.routers import triage as triage_router
+from app.routers import ws as ws_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 limiter = Limiter(key_func=get_remote_address)
@@ -55,6 +56,7 @@ app.include_router(symptoms.router)
 app.include_router(medications.router)
 app.include_router(patients.router)
 app.include_router(audit_router.router)
+app.include_router(ws_router.router)
 
 
 @app.get("/", response_class=HTMLResponse)

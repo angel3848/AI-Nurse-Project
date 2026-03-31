@@ -242,14 +242,14 @@ class TestUpdatePatient:
         response = client.put(
             f"/api/v1/patients/{patient_id}",
             json={
-                "allergies": "penicillin",
+                "allergies": ["penicillin"],
                 "emergency_contact_name": "Jane Doe",
             },
             headers=headers,
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["allergies"] == "penicillin"
+        assert data["allergies"] == ["penicillin"]
         assert data["emergency_contact_name"] == "Jane Doe"
 
 

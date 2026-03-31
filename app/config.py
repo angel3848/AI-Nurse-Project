@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     max_overflow: int = 10
     pool_pre_ping: bool = True
 
+    # AI analysis (Claude API)
+    anthropic_api_key: str = ""
+    ai_analysis_enabled: bool = False
+
     # Email notifications
     smtp_host: str = ""
     smtp_port: int = 587

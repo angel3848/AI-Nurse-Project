@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,6 +9,7 @@ from app.database import get_db
 from app.models.patient import Patient
 from app.models.triage import TriageRecord
 from app.models.user import User
+from app.routers.ws import queue_manager
 from app.schemas.triage import (
     TriageQueueItem,
     TriageQueueResponse,
@@ -16,6 +18,17 @@ from app.schemas.triage import (
 )
 from app.services.triage_engine import perform_triage
 from app.utils.auth import get_current_user, require_role
+
+
+def _notify_queue_updated() -> None:
+    """Fire-and-forget broadcast to all WebSocket clients."""
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(queue_manager.broadcast({"event": "queue_updated"}))
+    except RuntimeError:
+        # No running event loop (e.g., sync test context) — skip notification
+        pass
+
 
 router = APIRouter(prefix="/api/v1/triage", tags=["Triage"])
 
@@ -53,6 +66,7 @@ def create_triage(
         db.commit()
         db.refresh(record)
         result.id = record.id
+        _notify_queue_updated()
 
     return result
 
@@ -124,4 +138,5 @@ def update_triage_status(
         raise HTTPException(status_code=404, detail="Triage record not found")
     record.status = status
     db.commit()
+    _notify_queue_updated()
     return {"id": triage_id, "status": status}

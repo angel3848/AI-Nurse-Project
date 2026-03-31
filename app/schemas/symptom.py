@@ -22,6 +22,7 @@ class SymptomCheckResponse(BaseModel):
     possible_conditions: list[PossibleCondition]
     recommended_action: str
     urgency: str
+    ai_analysis: str | None = None
     disclaimer: str = (
         "This is not a medical diagnosis. Please consult a healthcare "
         "professional for proper evaluation and treatment."

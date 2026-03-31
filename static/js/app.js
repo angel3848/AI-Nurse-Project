@@ -1,6 +1,74 @@
 const API = '/api/v1';
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
 
+// --- WebSocket for real-time triage queue updates ---
+let triageWs = null;
+let triageWsBackoff = 1000;
+const TRIAGE_WS_MAX_BACKOFF = 30000;
+let triageWsReconnectTimer = null;
+
+function connectTriageWS() {
+    if (triageWsReconnectTimer) {
+        clearTimeout(triageWsReconnectTimer);
+        triageWsReconnectTimer = null;
+    }
+    if (triageWs) {
+        triageWs.onclose = null;
+        triageWs.close();
+        triageWs = null;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/triage-queue`;
+    triageWs = new WebSocket(wsUrl);
+
+    triageWs.onopen = () => {
+        triageWsBackoff = 1000;
+    };
+
+    triageWs.onmessage = (evt) => {
+        try {
+            const msg = JSON.parse(evt.data);
+            if (msg.event === 'queue_updated') {
+                const dashScreen = document.querySelector('#screen-dashboard');
+                if (dashScreen && !dashScreen.classList.contains('hidden')) {
+                    loadDashboard();
+                }
+            }
+        } catch (e) {
+            // ignore malformed messages
+        }
+    };
+
+    triageWs.onclose = () => {
+        triageWs = null;
+        if (currentUser && ['nurse', 'doctor', 'admin'].includes(currentUser.role)) {
+            triageWsReconnectTimer = setTimeout(() => {
+                triageWsReconnectTimer = null;
+                connectTriageWS();
+            }, triageWsBackoff);
+            triageWsBackoff = Math.min(triageWsBackoff * 2, TRIAGE_WS_MAX_BACKOFF);
+        }
+    };
+
+    triageWs.onerror = () => {
+        // onclose fires after onerror, reconnect handled there
+    };
+}
+
+function disconnectTriageWS() {
+    if (triageWsReconnectTimer) {
+        clearTimeout(triageWsReconnectTimer);
+        triageWsReconnectTimer = null;
+    }
+    if (triageWs) {
+        triageWs.onclose = null;
+        triageWs.close();
+        triageWs = null;
+    }
+    triageWsBackoff = 1000;
+}
+
 // --- XSS prevention ---
 function escapeHtml(str) {
     if (str == null) return '';
@@ -109,6 +177,7 @@ async function handleLogin(e) {
 }
 
 async function logout() {
+    disconnectTriageWS();
     try { await api('/auth/logout', { method: 'POST' }); } catch (e) {}
     currentUser = null;
     localStorage.removeItem('user');
@@ -127,6 +196,12 @@ function enterApp() {
     const isStaff = ['nurse', 'doctor', 'admin'].includes(currentUser.role);
     $$('.staff-only').forEach(el => isStaff ? show(el) : hide(el));
 
+    // Connect WebSocket for real-time triage queue updates (staff only)
+    if (isStaff) {
+        connectTriageWS();
+    }
+
+    registerServiceWorker();
     showScreen('dashboard');
 }
 
@@ -379,6 +454,12 @@ function renderSymptomResults(data) {
         });
     } else {
         html += '<p style="color:var(--gray-500)">No matching conditions found.</p>';
+    }
+    if (data.ai_analysis) {
+        html += `<div class="card" style="margin-top:1rem;border:1px solid var(--primary);border-radius:8px;padding:1rem;background:var(--gray-50,#f9fafb);">
+            <div style="font-weight:600;margin-bottom:0.5rem;color:var(--primary);">AI Clinical Analysis</div>
+            <div style="white-space:pre-wrap;line-height:1.5;">${escapeHtml(data.ai_analysis)}</div>
+        </div>`;
     }
     html += `<div class="disclaimer">${escapeHtml(data.disclaimer)}</div>`;
     result.innerHTML = html;
@@ -667,7 +748,7 @@ async function viewPatient(id) {
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Allergies</div>
-                    <div class="detail-value">${escapeHtml(p.allergies || 'None')}</div>
+                    <div class="detail-value">${p.allergies && p.allergies.length > 0 ? p.allergies.map(a => '<span class="badge badge-orange" style="margin:2px">' + escapeHtml(a) + '</span>').join(' ') : 'None'}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Emergency Contact</div>
@@ -744,7 +825,7 @@ async function handleCreatePatient(e) {
         const blood = $('#cp-blood').value.trim();
         if (blood) body.blood_type = blood;
         const allergies = $('#cp-allergies').value.trim();
-        if (allergies) body.allergies = allergies;
+        if (allergies) body.allergies = allergies.split(',').map(a => a.trim()).filter(Boolean);
         const ecName = $('#cp-ec-name').value.trim();
         if (ecName) body.emergency_contact_name = ecName;
         const ecPhone = $('#cp-ec-phone').value.trim();
@@ -813,8 +894,8 @@ function renderSelfRegistrationCard() {
                     <input type="text" id="sr-blood" placeholder="e.g. A+" maxlength="5">
                 </div>
                 <div class="form-group">
-                    <label for="sr-allergies">Allergies</label>
-                    <textarea id="sr-allergies" rows="2" placeholder="e.g. Penicillin, Peanuts" maxlength="1000"></textarea>
+                    <label for="sr-allergies">Allergies <small>(Comma separated)</small></label>
+                    <input type="text" id="sr-allergies" placeholder="e.g. Penicillin, Peanuts">
                 </div>
                 <div class="form-group">
                     <label for="sr-ec-name">Emergency Contact Name</label>
@@ -849,7 +930,7 @@ async function handleSelfRegister(e) {
         const blood = $('#sr-blood').value.trim();
         if (blood) body.blood_type = blood;
         const allergies = $('#sr-allergies').value.trim();
-        if (allergies) body.allergies = allergies;
+        if (allergies) body.allergies = allergies.split(',').map(a => a.trim()).filter(Boolean);
         const ecName = $('#sr-ec-name').value.trim();
         if (ecName) body.emergency_contact_name = ecName;
         const ecPhone = $('#sr-ec-phone').value.trim();
@@ -869,6 +950,25 @@ async function handleSelfRegister(e) {
         }
     } finally {
         setLoading(btn, false);
+    }
+}
+
+// --- Service Worker & Push Notifications ---
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/sw.js')
+            .then(function(registration) {
+                console.log('Service Worker registered with scope:', registration.scope);
+                // Request notification permission after registration
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission().then(function(permission) {
+                        console.log('Notification permission:', permission);
+                    });
+                }
+            })
+            .catch(function(err) {
+                console.log('Service Worker registration failed:', err);
+            });
     }
 }
 

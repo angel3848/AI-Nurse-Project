@@ -10,7 +10,7 @@ class PatientCreate(BaseModel):
     blood_type: str | None = Field(None, max_length=5)
     height_cm: float | None = Field(None, gt=0, le=300)
     weight_kg: float | None = Field(None, gt=0, le=700)
-    allergies: str | None = Field(None, max_length=1000)
+    allergies: list[str] | None = None
     emergency_contact_name: str | None = Field(None, max_length=200)
     emergency_contact_phone: str | None = Field(None, max_length=20)
     user_id: str | None = Field(None, max_length=36)
@@ -25,7 +25,7 @@ class PatientSelfCreate(BaseModel):
     blood_type: str | None = Field(None, max_length=5)
     height_cm: float | None = Field(None, gt=0, le=300)
     weight_kg: float | None = Field(None, gt=0, le=700)
-    allergies: str | None = Field(None, max_length=1000)
+    allergies: list[str] | None = None
     emergency_contact_name: str | None = Field(None, max_length=200)
     emergency_contact_phone: str | None = Field(None, max_length=20)
 
@@ -35,7 +35,7 @@ class PatientUpdate(BaseModel):
     blood_type: str | None = Field(None, max_length=5)
     height_cm: float | None = Field(None, gt=0, le=300)
     weight_kg: float | None = Field(None, gt=0, le=700)
-    allergies: str | None = Field(None, max_length=1000)
+    allergies: list[str] | None = None
     emergency_contact_name: str | None = Field(None, max_length=200)
     emergency_contact_phone: str | None = Field(None, max_length=20)
     user_id: str | None = Field(None, max_length=36)
@@ -49,7 +49,7 @@ class PatientResponse(BaseModel):
     blood_type: str | None
     height_cm: float | None
     weight_kg: float | None
-    allergies: str | None
+    allergies: list[str] | None
     emergency_contact_name: str | None
     emergency_contact_phone: str | None
     user_id: str | None
