@@ -1,0 +1,10 @@
+{
+  "include": ["app"],
+  "typeCheckingMode": "basic",
+  "reportUndefinedVariable": "warning",
+  "reportAttributeAccessIssue": "warning",
+  "reportFunctionMemberAccess": "warning",
+  "reportArgumentType": "warning",
+  "reportOptionalOperand": "warning",
+  "reportAssignmentType": "warning"
+}
