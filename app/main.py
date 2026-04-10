@@ -12,7 +12,7 @@ from slowapi.util import get_remote_address
 from app.config import settings
 from app.middleware.correlation import CorrelationIDMiddleware
 from app.database import Base, engine
-from app.models import audit, medication, patient, triage, user, vitals  # noqa: F401 — register models
+from app.models import audit, blacklisted_token, medication, patient, refresh_token, triage, user, vitals  # noqa: F401 — register models
 from app.routers import audit as audit_router
 from app.routers import auth, medications, metrics, patients, symptoms
 from app.routers import triage as triage_router

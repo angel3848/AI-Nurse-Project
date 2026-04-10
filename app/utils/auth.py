@@ -8,21 +8,43 @@ import jwt
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy.orm import Session
 
+import secrets
+
 from app.config import settings
 from app.database import get_db
+from app.models.blacklisted_token import BlacklistedToken
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 COOKIE_NAME = "access_token"
 
-# In-memory token blacklist (suitable for single-process dev; use Redis in production)
-_token_blacklist: set[str] = set()
+
+def blacklist_token(token: str, db: Session | None = None) -> None:
+    """Add a token to the blacklist so it can no longer be used.
+
+    If a db session is provided, uses it directly. Otherwise creates a
+    standalone session.
+    """
+    from app.database import get_standalone_session
+
+    own_session = db is None
+    if own_session:
+        db = get_standalone_session()
+    try:
+        existing = db.query(BlacklistedToken).filter(BlacklistedToken.token == token).first()
+        if not existing:
+            db.add(BlacklistedToken(token=token))
+            db.commit()
+    finally:
+        if own_session:
+            db.close()
 
 
-def blacklist_token(token: str) -> None:
-    """Add a token to the blacklist so it can no longer be used."""
-    _token_blacklist.add(token)
+def is_token_blacklisted(token: str, db: Session) -> bool:
+    """Check if a token has been blacklisted."""
+    return db.query(BlacklistedToken).filter(BlacklistedToken.token == token).first() is not None
 
 
 def hash_password(password: str) -> str:
@@ -37,6 +59,43 @@ def create_access_token(user_id: str, role: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {"sub": user_id, "role": role, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+
+
+def create_refresh_token(user_id: str, db: Session) -> str:
+    """Create an opaque refresh token and store it in the database."""
+    token = secrets.token_urlsafe(48)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    db.add(RefreshToken(token=token, user_id=user_id, expires_at=expires_at))
+    db.commit()
+    return token
+
+
+def rotate_refresh_token(old_token: str, db: Session) -> tuple[str, str, User] | None:
+    """Consume a refresh token and issue new access + refresh tokens.
+
+    Returns (access_token, new_refresh_token, user) or None if invalid.
+    """
+    record = db.query(RefreshToken).filter(RefreshToken.token == old_token).first()
+    if record is None:
+        return None
+    if record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        db.delete(record)
+        db.commit()
+        return None
+
+    user = db.query(User).filter(User.id == record.user_id).first()
+    if user is None or not user.is_active:
+        db.delete(record)
+        db.commit()
+        return None
+
+    # Delete old token (single-use rotation)
+    db.delete(record)
+    db.commit()
+
+    access_token = create_access_token(user.id, user.role)
+    new_refresh = create_refresh_token(user.id, db)
+    return access_token, new_refresh, user
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
@@ -99,7 +158,7 @@ def get_current_user(
     token, from_cookie = _extract_token(request, bearer_token)
 
     # Reject blacklisted tokens (logged-out or revoked)
-    if token in _token_blacklist:
+    if is_token_blacklisted(token, db):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has been revoked",

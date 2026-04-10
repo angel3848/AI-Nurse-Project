@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.auth import (
     DeactivateResponse,
     ForgotPasswordRequest,
+    RefreshRequest,
     ResetPasswordRequest,
     RoleUpdate,
     TokenResponse,
@@ -25,9 +26,11 @@ from app.utils.auth import (
     blacklist_token,
     clear_auth_cookie,
     create_access_token,
+    create_refresh_token,
     get_current_user,
     hash_password,
     require_role,
+    rotate_refresh_token,
     set_auth_cookie,
     verify_password,
 )
@@ -89,21 +92,38 @@ def login(request: Request, response: Response, body: UserLogin, db: Session = D
     db.commit()
 
     token = create_access_token(user.id, user.role)
+    refresh = create_refresh_token(user.id, db)
     set_auth_cookie(response, token)
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh,
         user=UserResponse.model_validate(user),
     )
 
 
 @router.post("/logout")
-def logout_user(request: Request, response: Response) -> dict:
+def logout_user(request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
     """Clear the auth cookie and blacklist the token."""
     token = request.cookies.get(COOKIE_NAME) or request.headers.get("Authorization", "").removeprefix("Bearer ")
     if token:
-        blacklist_token(token)
+        blacklist_token(token, db)
     clear_auth_cookie(response)
     return {"detail": "Logged out"}
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(body: RefreshRequest, response: Response, db: Session = Depends(get_db)) -> TokenResponse:
+    """Exchange a valid refresh token for new access + refresh tokens."""
+    result = rotate_refresh_token(body.refresh_token, db)
+    if result is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    access_token, new_refresh, user = result
+    set_auth_cookie(response, access_token)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=new_refresh,
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.get("/me", response_model=UserResponse)
@@ -126,7 +146,8 @@ def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session =
 
 
 @router.post("/reset-password")
-def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+@limiter.limit("5/minute")
+def reset_password(request: Request, body: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
     """Reset a password using a valid reset token."""
     user = (
         db.query(User)

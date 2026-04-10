@@ -28,6 +28,9 @@ jobs:
       - name: Format check
         run: ruff format --check app/ tests/
 
+      - name: Type check
+        run: pip install pyright && pyright app/
+
       - name: Security scan
         run: pip install bandit && bandit -r app/ -ll
 

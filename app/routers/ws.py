@@ -4,6 +4,10 @@ import json
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+import jwt
+from jwt.exceptions import InvalidTokenError
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,17 @@ class QueueConnectionManager:
 queue_manager = QueueConnectionManager()
 
 
+def _validate_ws_token(token: str | None) -> bool:
+    """Validate a JWT token for WebSocket connections. Returns True if valid."""
+    if not token:
+        return False
+    try:
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        return payload.get("sub") is not None
+    except InvalidTokenError:
+        return False
+
+
 @router.websocket("/ws/triage-queue")
 async def triage_queue_ws(
     ws: WebSocket,
@@ -48,18 +63,16 @@ async def triage_queue_ws(
 ) -> None:
     """WebSocket endpoint for triage queue updates.
 
-    Optionally accepts a `token` query param for auth verification.
-    Keeps the connection alive by listening for incoming messages.
+    Requires a valid JWT `token` query param for authentication.
+    Rejects unauthenticated connections with close code 4001.
     """
-    # Optional token verification could be added here, e.g.:
-    # if token and not verify_ws_token(token):
-    #     await ws.close(code=4001)
-    #     return
+    if not _validate_ws_token(token):
+        await ws.close(code=4001)
+        return
 
     await queue_manager.connect(ws)
     try:
         while True:
-            # Keep the connection alive; ignore incoming messages
             await ws.receive_text()
     except WebSocketDisconnect:
         queue_manager.disconnect(ws)
