@@ -242,7 +242,7 @@ def deactivate_user(
     # check in get_current_user also guards this, but blacklisting is
     # belt-and-suspenders).
     revoke_token = create_access_token(user.id, user.role)
-    blacklist_token(revoke_token)
+    blacklist_token(revoke_token, db)
     db.commit()
     db.refresh(user)
 
