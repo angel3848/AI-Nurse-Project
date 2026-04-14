@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AI Nurse">
+    <meta name="description" content="AI-powered digital nurse assistant for symptom checking, BMI calculation, and health guidance.">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <title>AI Nurse</title>
+    <style>
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-light: #dbeafe;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #dc2626;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-500: #6b7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --radius: 12px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+.app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Header */
+.header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: calc(12px + var(--safe-top)) 20px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+}
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.header-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+.header-btn:hover { background: rgba(255,255,255,0.3); }
+
+/* Bottom navigation */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: white;
+    border-top: 1px solid var(--gray-200);
+    display: flex;
+    padding-bottom: var(--safe-bottom);
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
+.nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px 6px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--gray-500);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s;
+    gap: 2px;
+}
+.nav-item.active { color: var(--primary); }
+.nav-icon { font-size: 22px; line-height: 1; }
+.nav-label { font-size: 10px; }
+
+/* Screens */
+.screen-container {
+    flex: 1;
+    padding-bottom: calc(64px + var(--safe-bottom));
+    overflow-y: auto;
+}
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* Content */
+.content { padding: 20px; }
+.section-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    letter-spacing: -0.3px;
+}
+
+/* Cards */
+.card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: box-shadow 0.2s;
+}
+.card:active { box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+/* Home screen */
+.hero {
+    background: linear-gradient(135deg, var(--primary), #7c3aed);
+    color: white;
+    padding: 28px 20px;
+    text-align: center;
+}
+.hero-icon { font-size: 56px; margin-bottom: 8px; }
+.hero h2 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.hero p { opacity: 0.9; font-size: 15px; }
+
+.quick-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 20px;
+}
+.quick-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.quick-card:active {
+    transform: scale(0.97);
+    border-color: var(--primary);
+}
+.quick-card-icon { font-size: 32px; margin-bottom: 8px; }
+.quick-card-title { font-weight: 600; font-size: 14px; color: var(--gray-900); }
+.quick-card-desc { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+
+/* Forms */
+.form-group { margin-bottom: 16px; }
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--gray-700);
+}
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius);
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: white;
+}
+.form-group input:focus, .form-group select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+
+.btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    touch-action: manipulation;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary { background: var(--gray-100); color: var(--gray-700); }
+.btn-outline {
+    background: white;
+    color: var(--primary);
+    border: 1.5px solid var(--primary);
+}
+.btn-sm { padding: 10px 16px; font-size: 14px; width: auto; }
+
+/* Toggle buttons */
+.toggle-group {
+    display: flex;
+    gap: 0;
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.toggle-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--gray-500);
+    transition: all 0.2s;
+}
+.toggle-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* Result panel */
+.result-panel {
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 20px;
+    animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.result-header {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+/* BMI */
+.bmi-display {
+    text-align: center;
+    padding: 20px 0;
+}
+.bmi-value { font-size: 56px; font-weight: 800; letter-spacing: -2px; }
+.bmi-category { font-size: 20px; font-weight: 600; margin-top: 4px; text-transform: capitalize; }
+.bmi-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #3b82f6, #22c55e, #eab308, #f97316, #ef4444);
+    margin: 16px 0 8px;
+    position: relative;
+}
+.bmi-marker {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--gray-900);
+    border: 3px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    position: absolute;
+    top: -4px;
+    transition: left 0.5s ease;
+}
+.bmi-range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--gray-500);
+}
+
+/* Symptom tags */
+.symptom-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.symptom-tag {
+    background: var(--gray-100);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1.5px solid var(--gray-200);
+    transition: all 0.2s;
+    user-select: none;
+}
+.symptom-tag.selected {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* Condition results */
+.condition-item {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+.condition-item:last-child { border-bottom: none; }
+.condition-name { font-weight: 600; font-size: 15px; }
+.condition-prob {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: inline-block;
+    margin-top: 4px;
+}
+.condition-desc { font-size: 13px; color: var(--gray-500); margin-top: 4px; line-height: 1.5; }
+
+.disclaimer {
+    margin-top: 16px;
+    padding: 12px;
+    background: #fef3c7;
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: #92400e;
+    line-height: 1.5;
+}
+
+/* Alerts */
+.alert-container {
+    position: fixed;
+    top: calc(12px + var(--safe-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    width: 90%;
+    max-width: 440px;
+}
+.alert {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    animation: slideDown 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.alert-success { background: #dcfce7; color: #166534; }
+.alert-danger { background: #fee2e2; color: #991b1b; }
+.alert-warning { background: #fef9c3; color: #854d0e; }
+.alert-info { background: #dbeafe; color: #1e40af; }
+
+/* Settings */
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+.setting-label { font-weight: 500; font-size: 15px; }
+.setting-desc { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+.setting-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius);
+    font-size: 14px;
+    outline: none;
+    margin-top: 8px;
+}
+.setting-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+
+/* Vitals grid */
+.vitals-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* Status indicator */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+}
+.status-online { background: var(--success); }
+.status-offline { background: var(--danger); }
+
+/* Info banner */
+.info-banner {
+    background: var(--primary-light);
+    border: 1px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: var(--primary-dark);
+    line-height: 1.5;
+}
+
+/* Hidden */
+.hidden { display: none !important; }
+
+/* PWA install prompt */
+.install-banner {
+    background: linear-gradient(135deg, #7c3aed, var(--primary));
+    color: white;
+    padding: 16px 20px;
+    margin: 12px 20px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+.install-banner-text { flex: 1; }
+.install-banner-text strong { display: block; font-size: 15px; }
+.install-banner-text span { font-size: 13px; opacity: 0.9; }
+.install-banner-icon { font-size: 28px; }
+.install-banner-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+    </style>
+</head>
+<body>
+<div class="app">
+    <!-- Alerts -->
+    <div class="alert-container" id="alerts"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <h1>AI Nurse</h1>
+        <div class="header-actions">
+            <button class="header-btn" onclick="navigateTo('settings')" aria-label="Settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Screen container -->
+    <div class="screen-container">
+
+        <!-- Home -->
+        <div class="screen active" id="screen-home">
+            <div class="hero">
+                <div class="hero-icon">🏥</div>
+                <h2>AI Nurse</h2>
+                <p>Your digital healthcare assistant</p>
+            </div>
+
+            <div id="install-banner" class="install-banner hidden" onclick="installPWA()">
+                <div class="install-banner-icon">📲</div>
+                <div class="install-banner-text">
+                    <strong>Install AI Nurse</strong>
+                    <span>Add to your home screen for quick access</span>
+                </div>
+                <button class="install-banner-close" onclick="event.stopPropagation(); hideInstallBanner();">&times;</button>
+            </div>
+
+            <div class="quick-grid">
+                <div class="quick-card" onclick="navigateTo('symptoms')">
+                    <div class="quick-card-icon">🩺</div>
+                    <div class="quick-card-title">Symptoms</div>
+                    <div class="quick-card-desc">Check your symptoms</div>
+                </div>
+                <div class="quick-card" onclick="navigateTo('bmi')">
+                    <div class="quick-card-icon">⚖️</div>
+                    <div class="quick-card-title">BMI</div>
+                    <div class="quick-card-desc">Calculate your BMI</div>
+                </div>
+                <div class="quick-card" onclick="navigateTo('triage')">
+                    <div class="quick-card-icon">🚑</div>
+                    <div class="quick-card-title">Triage</div>
+                    <div class="quick-card-desc">Quick assessment</div>
+                </div>
+                <div class="quick-card" onclick="navigateTo('info')">
+                    <div class="quick-card-icon">📋</div>
+                    <div class="quick-card-title">Health Info</div>
+                    <div class="quick-card-desc">Tips &amp; guidance</div>
+                </div>
+            </div>
+
+            <div style="padding: 0 20px 20px;">
+                <div id="server-status" class="card">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="status-dot status-offline" id="status-dot"></span>
+                        <span style="font-weight:600;font-size:14px;" id="status-text">Offline Mode</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--gray-500);margin-top:4px;" id="status-desc">
+                        BMI &amp; Symptom Checker work offline. Connect a server in Settings for full features.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Symptom Checker -->
+        <div class="screen" id="screen-symptoms">
+            <div class="content">
+                <h3 class="section-title">Symptom Checker</h3>
+                <p style="color:var(--gray-500);font-size:14px;margin-bottom:16px;">
+                    Select your symptoms for a preliminary assessment.
+                </p>
+                <form id="form-symptoms" onsubmit="checkSymptoms(event)">
+                    <div class="form-group">
+                        <label>Select your symptoms</label>
+                        <div id="symptom-tags" class="symptom-tags"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="sym-duration">Duration (days)</label>
+                        <input type="number" id="sym-duration" required min="1" max="365" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="sym-severity">Severity</label>
+                        <select id="sym-severity">
+                            <option value="mild">Mild</option>
+                            <option value="moderate">Moderate</option>
+                            <option value="severe">Severe</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sym-age">Age</label>
+                        <input type="number" id="sym-age" required min="1" max="150" value="35">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Check Symptoms</button>
+                </form>
+                <div id="symptom-result" class="hidden"></div>
+            </div>
+        </div>
+
+        <!-- BMI Calculator -->
+        <div class="screen" id="screen-bmi">
+            <div class="content">
+                <h3 class="section-title">BMI Calculator</h3>
+                <form id="form-bmi" onsubmit="calculateBMI(event)">
+                    <div class="form-group">
+                        <label>Unit System</label>
+                        <div class="toggle-group">
+                            <button type="button" class="toggle-btn active" id="bmi-toggle-metric" onclick="setBMIUnit('metric')">Metric (cm/kg)</button>
+                            <button type="button" class="toggle-btn" id="bmi-toggle-imperial" onclick="setBMIUnit('imperial')">Imperial (ft/lbs)</button>
+                        </div>
+                    </div>
+                    <div id="bmi-metric-fields">
+                        <div class="form-group">
+                            <label for="bmi-height">Height (cm)</label>
+                            <input type="number" id="bmi-height" min="50" max="300" step="0.1" placeholder="175">
+                        </div>
+                        <div class="form-group">
+                            <label for="bmi-weight">Weight (kg)</label>
+                            <input type="number" id="bmi-weight" min="1" max="700" step="0.1" placeholder="70">
+                        </div>
+                    </div>
+                    <div id="bmi-imperial-fields" class="hidden">
+                        <div class="form-group">
+                            <label>Height</label>
+                            <div style="display:flex;gap:8px;">
+                                <div style="flex:1;">
+                                    <input type="number" id="bmi-height-ft" min="1" max="9" step="1" placeholder="5">
+                                    <span style="font-size:12px;color:var(--gray-500);">feet</span>
+                                </div>
+                                <div style="flex:1;">
+                                    <input type="number" id="bmi-height-in" min="0" max="11" step="0.1" placeholder="10">
+                                    <span style="font-size:12px;color:var(--gray-500);">inches</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="bmi-weight-lbs">Weight (lbs)</label>
+                            <input type="number" id="bmi-weight-lbs" min="1" max="1500" step="0.1" placeholder="154">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Calculate BMI</button>
+                </form>
+                <div id="bmi-result" class="hidden"></div>
+            </div>
+        </div>
+
+        <!-- Triage -->
+        <div class="screen" id="screen-triage">
+            <div class="content">
+                <h3 class="section-title">Quick Triage</h3>
+                <p style="color:var(--gray-500);font-size:14px;margin-bottom:16px;">
+                    Answer a few questions for a preliminary triage assessment.
+                </p>
+                <form id="form-triage" onsubmit="runTriage(event)">
+                    <div class="form-group">
+                        <label for="tri-name">Patient Name</label>
+                        <input type="text" id="tri-name" required placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="tri-complaint">Chief Complaint</label>
+                        <input type="text" id="tri-complaint" required placeholder="e.g., Severe chest pain">
+                    </div>
+                    <div class="form-group">
+                        <label for="tri-age">Age</label>
+                        <input type="number" id="tri-age" required min="1" max="150" value="35">
+                    </div>
+                    <div class="form-group">
+                        <label for="tri-pain">Pain Level (0-10)</label>
+                        <input type="range" id="tri-pain" min="0" max="10" value="5" oninput="document.getElementById('tri-pain-val').textContent=this.value" style="width:100%;height:40px;">
+                        <div style="text-align:center;font-weight:700;font-size:20px;color:var(--primary);" id="tri-pain-val">5</div>
+                    </div>
+                    <h4 style="margin:16px 0 10px;font-size:15px;font-weight:600;">Vitals (optional)</h4>
+                    <div class="vitals-grid">
+                        <div class="form-group"><label>HR (bpm)</label><input type="number" id="tri-hr" placeholder="75"></div>
+                        <div class="form-group"><label>SpO2 (%)</label><input type="number" id="tri-spo2" placeholder="98"></div>
+                        <div class="form-group"><label>BP Systolic</label><input type="number" id="tri-sys" placeholder="120"></div>
+                        <div class="form-group"><label>BP Diastolic</label><input type="number" id="tri-dia" placeholder="80"></div>
+                        <div class="form-group"><label>Temp (F)</label><input type="number" id="tri-temp" step="0.1" placeholder="98.6"></div>
+                        <div class="form-group"><label>Resp Rate</label><input type="number" id="tri-rr" placeholder="16"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top:12px;">Assess</button>
+                </form>
+                <div id="triage-result" class="hidden"></div>
+            </div>
+        </div>
+
+        <!-- Health Info -->
+        <div class="screen" id="screen-info">
+            <div class="content">
+                <h3 class="section-title">Health Information</h3>
+
+                <div class="card" style="cursor:pointer;" onclick="this.querySelector('.info-body').classList.toggle('hidden')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <strong>When to Seek Emergency Care</strong>
+                        <span style="color:var(--gray-500);">+</span>
+                    </div>
+                    <div class="info-body hidden" style="margin-top:12px;font-size:14px;color:var(--gray-700);line-height:1.7;">
+                        Seek immediate medical attention for:<br>
+                        - Chest pain or pressure<br>
+                        - Difficulty breathing<br>
+                        - Sudden severe headache<br>
+                        - Uncontrolled bleeding<br>
+                        - Signs of stroke (face drooping, arm weakness, speech difficulty)<br>
+                        - Severe allergic reactions<br>
+                        - Loss of consciousness
+                    </div>
+                </div>
+
+                <div class="card" style="cursor:pointer;" onclick="this.querySelector('.info-body').classList.toggle('hidden')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <strong>Understanding BMI</strong>
+                        <span style="color:var(--gray-500);">+</span>
+                    </div>
+                    <div class="info-body hidden" style="margin-top:12px;font-size:14px;color:var(--gray-700);line-height:1.7;">
+                        BMI Categories:<br>
+                        - Underweight: Below 18.5<br>
+                        - Normal: 18.5 - 24.9<br>
+                        - Overweight: 25.0 - 29.9<br>
+                        - Obese: 30.0 and above<br><br>
+                        BMI is a screening tool, not a diagnostic. Consult your healthcare provider for a complete health assessment.
+                    </div>
+                </div>
+
+                <div class="card" style="cursor:pointer;" onclick="this.querySelector('.info-body').classList.toggle('hidden')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <strong>Normal Vital Signs</strong>
+                        <span style="color:var(--gray-500);">+</span>
+                    </div>
+                    <div class="info-body hidden" style="margin-top:12px;font-size:14px;color:var(--gray-700);line-height:1.7;">
+                        Adult normal ranges:<br>
+                        - Heart Rate: 60-100 bpm<br>
+                        - Blood Pressure: 90/60 - 120/80 mmHg<br>
+                        - Respiratory Rate: 12-20 breaths/min<br>
+                        - Temperature: 97.8-99.1°F (36.5-37.3°C)<br>
+                        - Oxygen Saturation: 95-100%
+                    </div>
+                </div>
+
+                <div class="card" style="cursor:pointer;" onclick="this.querySelector('.info-body').classList.toggle('hidden')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <strong>First Aid Basics</strong>
+                        <span style="color:var(--gray-500);">+</span>
+                    </div>
+                    <div class="info-body hidden" style="margin-top:12px;font-size:14px;color:var(--gray-700);line-height:1.7;">
+                        <strong>Burns:</strong> Cool under running water for 10+ min. Cover loosely.<br>
+                        <strong>Cuts:</strong> Apply pressure with clean cloth. Elevate the wound.<br>
+                        <strong>Choking:</strong> 5 back blows, then 5 abdominal thrusts (Heimlich).<br>
+                        <strong>CPR:</strong> 30 chest compressions, 2 breaths. Push hard and fast.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="screen" id="screen-settings">
+            <div class="content">
+                <h3 class="section-title">Settings</h3>
+
+                <div class="card">
+                    <div class="setting-label">Server Connection</div>
+                    <div class="setting-desc">Connect to your AI Nurse backend for full features (login, patient management, AI triage).</div>
+                    <input class="setting-input" type="url" id="setting-api-url" placeholder="https://your-server.com" onchange="saveApiUrl()">
+                    <div style="display:flex;gap:8px;margin-top:10px;">
+                        <button class="btn btn-primary btn-sm" onclick="testConnection()" style="flex:1;">Test Connection</button>
+                        <button class="btn btn-secondary btn-sm" onclick="clearApiUrl()" style="flex:1;">Clear</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="setting-label">About AI Nurse</div>
+                    <div class="setting-desc" style="margin-top:8px;">
+                        AI-powered digital nurse assistant for patient triage, symptom checking, health metrics, and medication reminders.<br><br>
+                        <strong>Version:</strong> 1.0.0<br>
+                        <strong>Mode:</strong> <span id="about-mode">Offline (Static)</span><br><br>
+                        <em>This is not a substitute for professional medical advice. Always consult a qualified healthcare provider.</em>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-screen="home" onclick="navigateTo('home')">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">Home</span>
+        </button>
+        <button class="nav-item" data-screen="symptoms" onclick="navigateTo('symptoms')">
+            <span class="nav-icon">🩺</span>
+            <span class="nav-label">Symptoms</span>
+        </button>
+        <button class="nav-item" data-screen="bmi" onclick="navigateTo('bmi')">
+            <span class="nav-icon">⚖️</span>
+            <span class="nav-label">BMI</span>
+        </button>
+        <button class="nav-item" data-screen="triage" onclick="navigateTo('triage')">
+            <span class="nav-icon">🚑</span>
+            <span class="nav-label">Triage</span>
+        </button>
+        <button class="nav-item" data-screen="info" onclick="navigateTo('info')">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Info</span>
+        </button>
+    </nav>
+</div>
+
+<script>
+// --- Navigation ---
+function navigateTo(screen) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + screen).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const navBtn = document.querySelector('.nav-item[data-screen="' + screen + '"]');
+    if (navBtn) navBtn.classList.add('active');
+    window.scrollTo(0, 0);
+}
+
+// --- Alerts ---
+function showAlert(msg, type) {
+    const container = document.getElementById('alerts');
+    const div = document.createElement('div');
+    div.className = 'alert alert-' + type;
+    div.textContent = msg;
+    container.appendChild(div);
+    setTimeout(() => div.remove(), 4000);
+}
+
+// --- BMI ---
+let bmiUnit = 'metric';
+function setBMIUnit(unit) {
+    bmiUnit = unit;
+    document.getElementById('bmi-metric-fields').classList.toggle('hidden', unit !== 'metric');
+    document.getElementById('bmi-imperial-fields').classList.toggle('hidden', unit !== 'imperial');
+    document.getElementById('bmi-toggle-metric').classList.toggle('active', unit === 'metric');
+    document.getElementById('bmi-toggle-imperial').classList.toggle('active', unit === 'imperial');
+}
+
+function calculateBMI(e) {
+    e.preventDefault();
+    let heightM, weightKg;
+
+    if (bmiUnit === 'metric') {
+        const cm = parseFloat(document.getElementById('bmi-height').value);
+        weightKg = parseFloat(document.getElementById('bmi-weight').value);
+        if (!cm || !weightKg) { showAlert('Please enter height and weight', 'warning'); return; }
+        heightM = cm / 100;
+    } else {
+        const ft = parseFloat(document.getElementById('bmi-height-ft').value) || 0;
+        const inches = parseFloat(document.getElementById('bmi-height-in').value) || 0;
+        weightKg = (parseFloat(document.getElementById('bmi-weight-lbs').value) || 0) * 0.453592;
+        const totalIn = ft * 12 + inches;
+        if (!totalIn || !weightKg) { showAlert('Please enter height and weight', 'warning'); return; }
+        heightM = totalIn * 0.0254;
+    }
+
+    const bmi = weightKg / (heightM * heightM);
+    let category, color, advice;
+
+    if (bmi < 18.5) {
+        category = 'Underweight'; color = '#3b82f6';
+        advice = 'You may need to gain weight. Consult a healthcare provider for personalized advice on nutrition.';
+    } else if (bmi < 25) {
+        category = 'Normal'; color = '#22c55e';
+        advice = 'Your weight is in the healthy range. Maintain a balanced diet and regular exercise.';
+    } else if (bmi < 30) {
+        category = 'Overweight'; color = '#f59e0b';
+        advice = 'Consider lifestyle changes including diet modifications and increased physical activity.';
+    } else {
+        category = 'Obese'; color = '#ef4444';
+        advice = 'Please consult a healthcare provider for guidance on weight management and health risks.';
+    }
+
+    const markerPos = Math.min(Math.max((bmi - 15) / 30 * 100, 2), 98);
+
+    document.getElementById('bmi-result').innerHTML = `
+        <div class="result-panel">
+            <div class="bmi-display">
+                <div class="bmi-value" style="color:${color}">${bmi.toFixed(1)}</div>
+                <div class="bmi-category" style="color:${color}">${category}</div>
+            </div>
+            <div class="bmi-bar">
+                <div class="bmi-marker" style="left:${markerPos}%"></div>
+            </div>
+            <div class="bmi-range-labels">
+                <span>15</span><span>18.5</span><span>25</span><span>30</span><span>40+</span>
+            </div>
+            <p style="margin-top:16px;font-size:14px;color:var(--gray-700);line-height:1.6;">${advice}</p>
+            <div class="disclaimer">
+                BMI is a screening tool, not a diagnosis. It does not account for muscle mass, bone density, or body composition. Consult your doctor for a full assessment.
+            </div>
+        </div>
+    `;
+    document.getElementById('bmi-result').classList.remove('hidden');
+}
+
+// --- Symptom Checker ---
+const SYMPTOMS = [
+    'Headache', 'Fever', 'Cough', 'Fatigue', 'Nausea', 'Dizziness',
+    'Chest Pain', 'Shortness of Breath', 'Sore Throat', 'Body Aches',
+    'Runny Nose', 'Vomiting', 'Diarrhea', 'Abdominal Pain',
+    'Back Pain', 'Joint Pain', 'Rash', 'Chills', 'Congestion', 'Sneezing'
+];
+
+const SYMPTOM_DB = {
+    'Fever,Cough,Fatigue': { conditions: [{ name: 'Influenza (Flu)', prob: 'High', desc: 'Viral infection causing fever, cough, body aches and fatigue. Usually resolves in 1-2 weeks.' }, { name: 'COVID-19', prob: 'Moderate', desc: 'Consider testing. Symptoms overlap with flu.' }, { name: 'Common Cold', prob: 'Low', desc: 'Usually milder symptoms without high fever.' }] },
+    'Headache,Fever': { conditions: [{ name: 'Viral Infection', prob: 'High', desc: 'Many viral infections cause headache and fever. Rest and hydration recommended.' }, { name: 'Sinusitis', prob: 'Moderate', desc: 'Inflammation of sinuses, often following a cold.' }, { name: 'Meningitis', prob: 'Low', desc: 'If severe headache with stiff neck, seek emergency care immediately.' }] },
+    'Chest Pain,Shortness of Breath': { conditions: [{ name: 'Cardiac Event', prob: 'Urgent', desc: 'Seek emergency care immediately. Call 911 if chest pain is severe, crushing, or radiating.' }, { name: 'Anxiety/Panic Attack', prob: 'Moderate', desc: 'Can mimic cardiac symptoms. Still recommended to rule out cardiac causes.' }, { name: 'Pulmonary Issue', prob: 'Moderate', desc: 'Could indicate pneumonia, PE, or other lung conditions.' }] },
+    'Nausea,Vomiting,Diarrhea': { conditions: [{ name: 'Gastroenteritis', prob: 'High', desc: 'Stomach flu caused by viruses or bacteria. Stay hydrated.' }, { name: 'Food Poisoning', prob: 'Moderate', desc: 'Usually resolves in 24-48 hours. Seek care if symptoms are severe.' }, { name: 'Appendicitis', prob: 'Low', desc: 'If pain localizes to lower right abdomen, seek emergency care.' }] },
+    'Sore Throat,Fever,Fatigue': { conditions: [{ name: 'Strep Throat', prob: 'High', desc: 'Bacterial infection requiring antibiotics. See a doctor for a rapid strep test.' }, { name: 'Mononucleosis', prob: 'Moderate', desc: 'Viral infection common in young adults. Causes prolonged fatigue.' }, { name: 'Tonsillitis', prob: 'Moderate', desc: 'Inflammation of tonsils, may be viral or bacterial.' }] },
+    'default': { conditions: [{ name: 'General Assessment', prob: 'Varies', desc: 'Your symptoms could be related to various conditions. Monitor your symptoms and consult a healthcare provider if they worsen.' }, { name: 'Viral Infection', prob: 'Moderate', desc: 'Many common symptoms are caused by viral infections that resolve on their own.' }] }
+};
+
+function initSymptomTags() {
+    const container = document.getElementById('symptom-tags');
+    container.innerHTML = SYMPTOMS.map(s =>
+        `<span class="symptom-tag" data-symptom="${s}" onclick="this.classList.toggle('selected')">${s}</span>`
+    ).join('');
+}
+
+function checkSymptoms(e) {
+    e.preventDefault();
+    const selected = Array.from(document.querySelectorAll('.symptom-tag.selected')).map(t => t.dataset.symptom);
+    if (selected.length === 0) { showAlert('Please select at least one symptom', 'warning'); return; }
+
+    const severity = document.getElementById('sym-severity').value;
+    const duration = parseInt(document.getElementById('sym-duration').value);
+
+    // Find best matching condition set
+    let bestMatch = SYMPTOM_DB['default'];
+    let bestScore = 0;
+    for (const key of Object.keys(SYMPTOM_DB)) {
+        if (key === 'default') continue;
+        const keySymptoms = key.split(',');
+        const matches = keySymptoms.filter(s => selected.includes(s)).length;
+        const score = matches / keySymptoms.length;
+        if (score > bestScore) { bestScore = score; bestMatch = SYMPTOM_DB[key]; }
+    }
+
+    const probColors = { 'High': '#fee2e2;color:#991b1b', 'Moderate': '#fef9c3;color:#854d0e', 'Low': '#dcfce7;color:#166534', 'Urgent': '#fee2e2;color:#991b1b', 'Varies': '#dbeafe;color:#1e40af' };
+
+    let urgencyNote = '';
+    if (severity === 'severe' || selected.includes('Chest Pain') || selected.includes('Shortness of Breath')) {
+        urgencyNote = '<div style="background:#fee2e2;color:#991b1b;padding:12px;border-radius:var(--radius);margin-bottom:12px;font-weight:600;">If symptoms are severe, please seek immediate medical attention or call 911.</div>';
+    }
+    if (duration > 7) {
+        urgencyNote += '<div style="background:#fef9c3;color:#854d0e;padding:12px;border-radius:var(--radius);margin-bottom:12px;">Symptoms lasting over a week warrant a visit to your healthcare provider.</div>';
+    }
+
+    document.getElementById('symptom-result').innerHTML = `
+        <div class="result-panel">
+            <div class="result-header">Assessment Results</div>
+            ${urgencyNote}
+            <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px;">Based on: ${selected.join(', ')} | ${severity} severity | ${duration} day(s)</p>
+            ${bestMatch.conditions.map(c => `
+                <div class="condition-item">
+                    <div class="condition-name">${c.name}</div>
+                    <span class="condition-prob" style="background:${probColors[c.prob] || probColors['Varies']}">${c.prob} likelihood</span>
+                    <div class="condition-desc">${c.desc}</div>
+                </div>
+            `).join('')}
+            <div class="disclaimer">
+                This is a preliminary assessment tool, NOT a medical diagnosis. Always consult a qualified healthcare professional for proper diagnosis and treatment. If you are experiencing a medical emergency, call 911 immediately.
+            </div>
+        </div>
+    `;
+    document.getElementById('symptom-result').classList.remove('hidden');
+}
+
+// --- Triage ---
+function runTriage(e) {
+    e.preventDefault();
+    const name = document.getElementById('tri-name').value;
+    const complaint = document.getElementById('tri-complaint').value;
+    const age = parseInt(document.getElementById('tri-age').value);
+    const pain = parseInt(document.getElementById('tri-pain').value);
+    const hr = parseInt(document.getElementById('tri-hr').value) || null;
+    const spo2 = parseInt(document.getElementById('tri-spo2').value) || null;
+    const sys = parseInt(document.getElementById('tri-sys').value) || null;
+    const temp = parseFloat(document.getElementById('tri-temp').value) || null;
+
+    // Simple triage scoring
+    let score = 0;
+    let flags = [];
+
+    if (pain >= 8) { score += 3; flags.push('Severe pain ('+pain+'/10)'); }
+    else if (pain >= 5) { score += 1; flags.push('Moderate pain ('+pain+'/10)'); }
+
+    if (hr && (hr > 120 || hr < 50)) { score += 2; flags.push('Abnormal heart rate: '+hr+' bpm'); }
+    if (spo2 && spo2 < 92) { score += 3; flags.push('Low oxygen: '+spo2+'%'); }
+    else if (spo2 && spo2 < 95) { score += 1; flags.push('Borderline oxygen: '+spo2+'%'); }
+    if (sys && (sys > 180 || sys < 90)) { score += 2; flags.push('Abnormal blood pressure'); }
+    if (temp && (temp > 103 || temp < 95)) { score += 2; flags.push('Abnormal temperature: '+temp+'°F'); }
+    if (age > 65 || age < 5) { score += 1; flags.push('Age-related risk factor'); }
+
+    const lowerComplaint = complaint.toLowerCase();
+    if (lowerComplaint.includes('chest') || lowerComplaint.includes('heart')) { score += 3; flags.push('Cardiac-related complaint'); }
+    if (lowerComplaint.includes('breath') || lowerComplaint.includes('breathing')) { score += 2; flags.push('Respiratory complaint'); }
+    if (lowerComplaint.includes('stroke') || lowerComplaint.includes('numbness')) { score += 3; flags.push('Possible neurological event'); }
+    if (lowerComplaint.includes('bleed') || lowerComplaint.includes('blood')) { score += 2; flags.push('Bleeding concern'); }
+
+    let level, levelColor, levelBg, recommendation;
+    if (score >= 6) {
+        level = 'Emergency'; levelColor = '#991b1b'; levelBg = '#fee2e2';
+        recommendation = 'Immediate medical attention required. Call 911 or go to the nearest emergency room.';
+    } else if (score >= 4) {
+        level = 'Urgent'; levelColor = '#9a3412'; levelBg = '#ffedd5';
+        recommendation = 'Seek medical care within 1-2 hours. Visit an urgent care or emergency department.';
+    } else if (score >= 2) {
+        level = 'Semi-Urgent'; levelColor = '#854d0e'; levelBg = '#fef9c3';
+        recommendation = 'Schedule a medical appointment within 24 hours. Monitor symptoms closely.';
+    } else {
+        level = 'Non-Urgent'; levelColor = '#166534'; levelBg = '#dcfce7';
+        recommendation = 'Monitor symptoms at home. Schedule a routine appointment if symptoms persist.';
+    }
+
+    document.getElementById('triage-result').innerHTML = `
+        <div class="result-panel">
+            <div class="result-header">Triage Assessment: ${name}</div>
+            <div style="text-align:center;padding:16px 0;">
+                <div style="display:inline-block;background:${levelBg};color:${levelColor};padding:10px 24px;border-radius:20px;font-weight:700;font-size:18px;">${level}</div>
+            </div>
+            <p style="font-size:14px;color:var(--gray-700);text-align:center;margin-bottom:16px;">${complaint}</p>
+            ${flags.length ? '<div style="margin-bottom:16px;"><strong style="font-size:14px;">Clinical Flags:</strong>' + flags.map(f => '<div style="font-size:13px;color:var(--gray-700);padding:4px 0;">• ' + f + '</div>').join('') + '</div>' : ''}
+            <div style="background:var(--gray-50);padding:14px;border-radius:var(--radius);font-size:14px;line-height:1.6;">
+                <strong>Recommendation:</strong><br>${recommendation}
+            </div>
+            <div class="disclaimer">
+                This is an automated preliminary assessment only. It does not replace professional clinical judgment. Always defer to qualified healthcare professionals for final triage decisions.
+            </div>
+        </div>
+    `;
+    document.getElementById('triage-result').classList.remove('hidden');
+}
+
+// --- Server connection ---
+function getApiUrl() {
+    return localStorage.getItem('ai_nurse_api_url') || '';
+}
+
+function saveApiUrl() {
+    const url = document.getElementById('setting-api-url').value.replace(/\/+$/, '');
+    localStorage.setItem('ai_nurse_api_url', url);
+    showAlert('Server URL saved', 'success');
+    checkServerStatus();
+}
+
+function clearApiUrl() {
+    localStorage.removeItem('ai_nurse_api_url');
+    document.getElementById('setting-api-url').value = '';
+    showAlert('Server URL cleared', 'info');
+    updateStatusUI(false);
+}
+
+async function testConnection() {
+    const url = getApiUrl();
+    if (!url) { showAlert('Please enter a server URL first', 'warning'); return; }
+    try {
+        const res = await fetch(url + '/docs', { mode: 'cors', signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+            showAlert('Connected successfully!', 'success');
+            updateStatusUI(true);
+        } else {
+            showAlert('Server responded but returned an error', 'warning');
+            updateStatusUI(false);
+        }
+    } catch {
+        showAlert('Could not connect to server', 'danger');
+        updateStatusUI(false);
+    }
+}
+
+async function checkServerStatus() {
+    const url = getApiUrl();
+    if (!url) { updateStatusUI(false); return; }
+    try {
+        const res = await fetch(url + '/docs', { mode: 'cors', signal: AbortSignal.timeout(3000) });
+        updateStatusUI(res.ok);
+    } catch {
+        updateStatusUI(false);
+    }
+}
+
+function updateStatusUI(online) {
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    const desc = document.getElementById('status-desc');
+    const mode = document.getElementById('about-mode');
+
+    if (online) {
+        dot.className = 'status-dot status-online';
+        text.textContent = 'Connected';
+        desc.textContent = 'All features available including AI-powered analysis.';
+        mode.textContent = 'Online (Connected to server)';
+    } else {
+        dot.className = 'status-dot status-offline';
+        text.textContent = 'Offline Mode';
+        desc.textContent = 'BMI & Symptom Checker work offline. Connect a server in Settings for full features.';
+        mode.textContent = 'Offline (Static)';
+    }
+}
+
+// --- PWA Install ---
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-banner').classList.remove('hidden');
+});
+
+function installPWA() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(result => {
+        if (result.outcome === 'accepted') {
+            showAlert('AI Nurse installed!', 'success');
+        }
+        deferredPrompt = null;
+        document.getElementById('install-banner').classList.add('hidden');
+    });
+}
+
+function hideInstallBanner() {
+    document.getElementById('install-banner').classList.add('hidden');
+}
+
+// --- Init ---
+window.addEventListener('DOMContentLoaded', () => {
+    initSymptomTags();
+    const savedUrl = getApiUrl();
+    if (savedUrl) {
+        document.getElementById('setting-api-url').value = savedUrl;
+        checkServerStatus();
+    }
+});
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
