@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
     app_env: str = "development"
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
+    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000", "https://angel3848.github.io"]
     database_url: str = "sqlite:///./ai_nurse.db"
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"

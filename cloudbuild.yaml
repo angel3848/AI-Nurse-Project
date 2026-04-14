@@ -1,0 +1,58 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/ai-nurse-api:${SHORT_SHA}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/ai-nurse-api:latest'
+      - '.'
+
+  # Push the image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/ai-nurse-api'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-nurse-api'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/ai-nurse-api:${SHORT_SHA}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8000'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'APP_ENV=production,DEBUG=false,COOKIE_SECURE=true'
+      - '--set-secrets'
+      - 'DATABASE_URL=ai-nurse-database-url:latest,JWT_SECRET_KEY=ai-nurse-jwt-secret:latest,REDIS_URL=ai-nurse-redis-url:latest,ANTHROPIC_API_KEY=ai-nurse-anthropic-key:latest'
+      - '--vpc-connector'
+      - '${_VPC_CONNECTOR}'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '3'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '300'
+
+substitutions:
+  _REGION: us-central1
+  _REPO_NAME: ai-nurse
+  _VPC_CONNECTOR: ai-nurse-connector
+
+options:
+  logging: CLOUD_LOGGING_ONLY
