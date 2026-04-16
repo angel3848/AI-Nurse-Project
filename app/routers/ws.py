@@ -8,6 +8,7 @@ import jwt
 from jwt.exceptions import InvalidTokenError
 
 from app.config import settings
+from app.utils.auth import COOKIE_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -135,8 +136,10 @@ async def user_events_ws(
 
     The connection is scoped to the token's subject claim; events published
     to that user's Redis channel are forwarded to every active connection.
+    Authenticates from the access_token cookie, then the `token` query
+    param as a fallback for non-browser clients.
     """
-    user_id = _decode_ws_token(token)
+    user_id = _decode_ws_token(ws.cookies.get(COOKIE_NAME)) or _decode_ws_token(token)
     if user_id is None:
         await ws.close(code=4001)
         return

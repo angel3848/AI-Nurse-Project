@@ -33,7 +33,7 @@ steps:
       - '8000'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'APP_ENV=production,DEBUG=false,COOKIE_SECURE=true'
+      - 'APP_ENV=production,DEBUG=false,COOKIE_SECURE=true,ENABLE_REALTIME_EVENTS=true'
       - '--set-secrets'
       - 'DATABASE_URL=ai-nurse-database-url:latest,JWT_SECRET_KEY=ai-nurse-jwt-secret:latest,REDIS_URL=ai-nurse-redis-url:latest,ANTHROPIC_API_KEY=ai-nurse-anthropic-key:latest'
       - '--vpc-connector'

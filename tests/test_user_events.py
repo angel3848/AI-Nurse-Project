@@ -117,3 +117,13 @@ class TestUserEventsWebSocket:
             with ws_client.websocket_connect(f"/ws/user?token={token}"):
                 assert user_manager.connection_count(user.id) == 1
         assert user_manager.connection_count(user.id) == 0
+
+    def test_accepts_cookie_auth(self, db):
+        user = create_test_user(db)
+        token = auth_header(user)["Authorization"].split()[1]
+        user_manager._by_user.clear()
+        with TestClient(app) as ws_client:
+            ws_client.cookies.set("access_token", token)
+            with ws_client.websocket_connect("/ws/user"):
+                assert user_manager.connection_count(user.id) == 1
+        assert user_manager.connection_count(user.id) == 0

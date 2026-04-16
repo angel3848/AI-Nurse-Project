@@ -69,6 +69,87 @@ function disconnectTriageWS() {
     triageWsBackoff = 1000;
 }
 
+// --- WebSocket for per-user events (medication reminders) ---
+let userWs = null;
+let userWsBackoff = 1000;
+const USER_WS_MAX_BACKOFF = 30000;
+let userWsReconnectTimer = null;
+
+function connectUserEventsWS() {
+    if (userWsReconnectTimer) {
+        clearTimeout(userWsReconnectTimer);
+        userWsReconnectTimer = null;
+    }
+    if (userWs) {
+        userWs.onclose = null;
+        userWs.close();
+        userWs = null;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    userWs = new WebSocket(`${protocol}//${window.location.host}/ws/user`);
+
+    userWs.onopen = () => { userWsBackoff = 1000; };
+
+    userWs.onmessage = (evt) => {
+        try {
+            const msg = JSON.parse(evt.data);
+            handleUserEvent(msg);
+        } catch (e) {
+            // ignore malformed messages
+        }
+    };
+
+    userWs.onclose = () => {
+        userWs = null;
+        if (currentUser) {
+            userWsReconnectTimer = setTimeout(() => {
+                userWsReconnectTimer = null;
+                connectUserEventsWS();
+            }, userWsBackoff);
+            userWsBackoff = Math.min(userWsBackoff * 2, USER_WS_MAX_BACKOFF);
+        }
+    };
+
+    userWs.onerror = () => { /* onclose handles reconnect */ };
+}
+
+function disconnectUserEventsWS() {
+    if (userWsReconnectTimer) {
+        clearTimeout(userWsReconnectTimer);
+        userWsReconnectTimer = null;
+    }
+    if (userWs) {
+        userWs.onclose = null;
+        userWs.close();
+        userWs = null;
+    }
+    userWsBackoff = 1000;
+}
+
+function handleUserEvent(msg) {
+    if (msg.type === 'medication_reminder') {
+        const title = msg.title || 'Medication reminder';
+        const body = msg.body || '';
+        showAlert(`${title}${body ? ' — ' + body : ''}`, 'info');
+        tryNativeNotification(title, body);
+    }
+}
+
+function tryNativeNotification(title, body) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+        try { new Notification(title, { body, icon: '/static/favicon.png' }); } catch {}
+    } else if (Notification.permission === 'default') {
+        // Request once; subsequent events will use the granted permission.
+        Notification.requestPermission().then(p => {
+            if (p === 'granted') {
+                try { new Notification(title, { body }); } catch {}
+            }
+        });
+    }
+}
+
 // --- XSS prevention ---
 function escapeHtml(str) {
     if (str == null) return '';
@@ -178,6 +259,7 @@ async function handleLogin(e) {
 
 async function logout() {
     disconnectTriageWS();
+    disconnectUserEventsWS();
     try { await api('/auth/logout', { method: 'POST' }); } catch (e) {}
     currentUser = null;
     localStorage.removeItem('user');
@@ -200,6 +282,9 @@ function enterApp() {
     if (isStaff) {
         connectTriageWS();
     }
+
+    // Per-user event stream (medication reminders, notifications)
+    connectUserEventsWS();
 
     registerServiceWorker();
     showScreen('dashboard');
