@@ -84,7 +84,14 @@ class TestVitalsTrend:
         headers = auth_header(nurse)
         pid = _mk_patient(client, headers)
         _mk_vital(client, headers, pid)
-        for vital in ("heart_rate", "bp_systolic", "bp_diastolic", "temperature_c", "respiratory_rate", "oxygen_saturation"):
+        for vital in (
+            "heart_rate",
+            "bp_systolic",
+            "bp_diastolic",
+            "temperature_c",
+            "respiratory_rate",
+            "oxygen_saturation",
+        ):
             resp = client.get(f"/api/v1/metrics/vitals/{pid}/trend?vital={vital}", headers=headers)
             assert resp.status_code == 200, f"Failed for {vital}"
             assert resp.json()["count"] == 1

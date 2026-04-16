@@ -56,7 +56,7 @@ async def listen_user_events(handler: Callable[[str, dict], Awaitable[None]]) ->
                 continue
             raw_channel = msg.get("channel")
             channel = raw_channel.decode() if isinstance(raw_channel, bytes) else raw_channel
-            user_id = channel[len(USER_EVENT_CHANNEL_PREFIX):]
+            user_id = channel[len(USER_EVENT_CHANNEL_PREFIX) :]
             try:
                 data = json.loads(msg["data"])
             except Exception:

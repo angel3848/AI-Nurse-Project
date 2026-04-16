@@ -55,7 +55,9 @@ class TestUpdateReminder:
         result = update_reminder(
             db,
             reminder_id,
-            MedicationReminderUpdate(dosage="500mg", frequency="once_daily", times=[time(12, 0)], instructions="With food"),
+            MedicationReminderUpdate(
+                dosage="500mg", frequency="once_daily", times=[time(12, 0)], instructions="With food"
+            ),
         )
         assert result is not None
         assert result.dosage == "500mg"

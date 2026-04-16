@@ -78,6 +78,7 @@ class TestUserConnectionManager:
 def _async_none():
     async def _inner():
         return None
+
     return _inner()
 
 

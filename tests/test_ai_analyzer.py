@@ -42,7 +42,9 @@ class TestAnalyzeSymptoms:
     def test_skips_non_text_blocks_and_returns_first_text(self):
         non_text = MagicMock(spec=[])
         text_block = TextBlock(type="text", text="Actual analysis.", citations=None)
-        with patch("app.services.ai_analyzer.anthropic.Anthropic", return_value=_mock_client_returning([non_text, text_block])):
+        with patch(
+            "app.services.ai_analyzer.anthropic.Anthropic", return_value=_mock_client_returning([non_text, text_block])
+        ):
             result = analyze_symptoms_with_ai(**_make_args())
         assert result == "Actual analysis."
 
@@ -66,14 +68,18 @@ class TestAnalyzeSymptoms:
 
     def test_handles_no_conditions(self):
         text_block = TextBlock(type="text", text="OK.", citations=None)
-        with patch("app.services.ai_analyzer.anthropic.Anthropic", return_value=_mock_client_returning([text_block])) as mocked:
+        with patch(
+            "app.services.ai_analyzer.anthropic.Anthropic", return_value=_mock_client_returning([text_block])
+        ) as mocked:
             analyze_symptoms_with_ai(**_make_args(rule_based_results={"possible_conditions": []}))
         user_msg = mocked.return_value.messages.create.call_args.kwargs["messages"][0]["content"]
         assert "None matched" in user_msg
 
     def test_uses_model_from_settings(self):
         text_block = TextBlock(type="text", text="OK.", citations=None)
-        with patch("app.services.ai_analyzer.anthropic.Anthropic", return_value=_mock_client_returning([text_block])) as mocked:
+        with patch(
+            "app.services.ai_analyzer.anthropic.Anthropic", return_value=_mock_client_returning([text_block])
+        ) as mocked:
             analyze_symptoms_with_ai(**_make_args())
         call_kwargs = mocked.return_value.messages.create.call_args.kwargs
         assert call_kwargs["model"].startswith("claude-")
