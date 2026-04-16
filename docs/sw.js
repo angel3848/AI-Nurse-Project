@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-nurse-v1';
+const CACHE_NAME = 'ai-nurse-v2';
 const ASSETS = [
     './',
     './index.html',

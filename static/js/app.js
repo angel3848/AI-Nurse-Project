@@ -409,6 +409,114 @@ function renderSymptomTags() {
     });
 }
 
+// --- Voice input (Web Speech API) ---
+// Aliases covering casual phrasing that users actually say.
+const SYMPTOM_ALIASES = {
+    'throwing up': 'vomiting',
+    'throw up': 'vomiting',
+    'puking': 'vomiting',
+    "can't breathe": 'shortness_of_breath',
+    'trouble breathing': 'shortness_of_breath',
+    'short of breath': 'shortness_of_breath',
+    'hard to breathe': 'shortness_of_breath',
+    'tired': 'fatigue',
+    'exhausted': 'fatigue',
+    'worn out': 'fatigue',
+    'stomach ache': 'abdominal_pain',
+    'stomach pain': 'abdominal_pain',
+    'belly pain': 'abdominal_pain',
+    'tummy pain': 'abdominal_pain',
+    'loose stool': 'diarrhea',
+    'runs': 'diarrhea',
+    'runny': 'runny_nose',
+    'stuffy': 'nasal_congestion',
+    'stuffy nose': 'nasal_congestion',
+    'cant sleep': 'insomnia',
+    "can't sleep": 'insomnia',
+    'sad': 'sadness',
+    'itchy': 'itching',
+};
+
+function matchSymptomsFromTranscript(transcript) {
+    const text = ' ' + transcript.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
+    const matches = new Set();
+    for (const [phrase, symptom] of Object.entries(SYMPTOM_ALIASES)) {
+        if (text.includes(' ' + phrase + ' ') || text.includes(' ' + phrase)) matches.add(symptom);
+    }
+    for (const sym of COMMON_SYMPTOMS) {
+        const human = sym.replace(/_/g, ' ');
+        if (text.includes(' ' + human + ' ') || text.endsWith(' ' + human)) matches.add(sym);
+    }
+    return [...matches];
+}
+
+function initSymptomVoice() {
+    const btn = document.getElementById('btn-sym-mic');
+    const transcriptEl = document.getElementById('sym-transcript');
+    if (!btn || !transcriptEl) return;
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;  // Feature-detect: leave button hidden.
+    btn.hidden = false;
+
+    const recognition = new SR();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    let active = false;
+
+    const setActive = (on) => {
+        active = on;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.querySelector('.mic-label').textContent = on ? 'Listening… tap to stop' : 'Speak your symptoms';
+    };
+
+    const showTranscript = (text) => {
+        transcriptEl.textContent = text ? `Heard: "${text}"` : '';
+        transcriptEl.classList.toggle('has-text', !!text);
+    };
+
+    recognition.onresult = (e) => {
+        let text = '';
+        for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+        showTranscript(text.trim());
+    };
+
+    recognition.onend = () => {
+        setActive(false);
+        const final = transcriptEl.textContent.replace(/^Heard:\s*"?/, '').replace(/"?$/, '');
+        if (!final) return;
+        const matches = matchSymptomsFromTranscript(final);
+        if (matches.length === 0) {
+            showAlert('No matching symptoms recognized. Try saying each symptom clearly.', 'warning');
+            return;
+        }
+        matches.forEach(s => selectedSymptoms.add(s));
+        renderSymptomTags();
+        showAlert(`Added ${matches.length} symptom${matches.length > 1 ? 's' : ''} from voice input.`, 'success');
+    };
+
+    recognition.onerror = (e) => {
+        setActive(false);
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+            showAlert('Microphone permission denied. Enable it in your browser settings.', 'danger');
+        } else if (e.error === 'no-speech') {
+            showAlert("Didn't hear anything — try again.", 'warning');
+        }
+    };
+
+    btn.addEventListener('click', () => {
+        if (active) {
+            recognition.stop();
+        } else {
+            showTranscript('');
+            try { recognition.start(); setActive(true); }
+            catch { /* already started — ignore */ }
+        }
+    });
+}
+
 async function handleSymptomCheck(e) {
     e.preventDefault();
     if (selectedSymptoms.size === 0) {
@@ -1032,6 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Symptom tags
     renderSymptomTags();
+    initSymptomVoice();
 
     // Auto-login via cookie — verify session with /auth/me
     if (currentUser) {

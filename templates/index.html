@@ -98,6 +98,13 @@
             <form id="form-symptoms" aria-label="Symptom checker form">
                 <div class="form-group">
                     <label>Select your symptoms</label>
+                    <div class="voice-input" id="sym-voice-wrap">
+                        <button type="button" id="btn-sym-mic" class="btn-mic" aria-label="Speak your symptoms" aria-pressed="false" hidden>
+                            <span class="mic-icon" aria-hidden="true">🎤</span>
+                            <span class="mic-label">Speak your symptoms</span>
+                        </button>
+                        <div id="sym-transcript" class="voice-transcript" aria-live="polite"></div>
+                    </div>
                     <div id="symptom-tags" class="symptom-tags"></div>
                 </div>
                 <div class="form-group">

@@ -322,6 +322,49 @@ body {
     border-color: var(--primary);
 }
 
+/* Voice input */
+.voice-input { margin-bottom: 10px; }
+.btn-mic {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    min-height: 44px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 999px;
+    background: white;
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.btn-mic:hover { background: var(--gray-100); }
+.btn-mic[aria-pressed="true"] {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #b91c1c;
+    animation: mic-pulse 1.2s ease-in-out infinite;
+}
+.btn-mic .mic-icon { font-size: 18px; line-height: 1; }
+@keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
+    50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+.voice-transcript {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--gray-500);
+    font-style: italic;
+}
+.voice-transcript.has-text {
+    padding: 8px 10px;
+    background: var(--gray-100);
+    border-radius: 6px;
+    color: #374151;
+    font-style: normal;
+}
+
 /* Condition results */
 .condition-item {
     padding: 12px 0;
@@ -546,6 +589,13 @@ body {
                 <form id="form-symptoms" onsubmit="checkSymptoms(event)">
                     <div class="form-group">
                         <label>Select your symptoms</label>
+                        <div class="voice-input">
+                            <button type="button" id="btn-sym-mic" class="btn-mic" aria-label="Speak your symptoms" aria-pressed="false" hidden>
+                                <span class="mic-icon" aria-hidden="true">🎤</span>
+                                <span class="mic-label">Speak your symptoms</span>
+                            </button>
+                            <div id="sym-transcript" class="voice-transcript" aria-live="polite"></div>
+                        </div>
                         <div id="symptom-tags" class="symptom-tags"></div>
                     </div>
                     <div class="form-group">
@@ -884,6 +934,95 @@ const SYMPTOM_DB = {
     'default': { conditions: [{ name: 'General Assessment', prob: 'Varies', desc: 'Your symptoms could be related to various conditions. Monitor your symptoms and consult a healthcare provider if they worsen.' }, { name: 'Viral Infection', prob: 'Moderate', desc: 'Many common symptoms are caused by viral infections that resolve on their own.' }] }
 };
 
+const SYMPTOM_ALIASES = {
+    'throwing up': 'Vomiting', 'throw up': 'Vomiting', 'puking': 'Vomiting',
+    "can't breathe": 'Shortness of Breath', 'trouble breathing': 'Shortness of Breath',
+    'short of breath': 'Shortness of Breath', 'hard to breathe': 'Shortness of Breath',
+    'tired': 'Fatigue', 'exhausted': 'Fatigue', 'worn out': 'Fatigue',
+    'stomach ache': 'Abdominal Pain', 'stomach pain': 'Abdominal Pain',
+    'belly pain': 'Abdominal Pain', 'tummy pain': 'Abdominal Pain',
+    'loose stool': 'Diarrhea',
+    'runny': 'Runny Nose', 'stuffy': 'Congestion', 'stuffy nose': 'Congestion',
+    'itchy': 'Rash',
+};
+
+function matchSymptomsFromTranscript(transcript) {
+    const text = ' ' + transcript.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
+    const matches = new Set();
+    for (const [phrase, symptom] of Object.entries(SYMPTOM_ALIASES)) {
+        if (text.includes(' ' + phrase + ' ') || text.includes(' ' + phrase)) matches.add(symptom);
+    }
+    for (const sym of SYMPTOMS) {
+        const human = sym.toLowerCase();
+        if (text.includes(' ' + human + ' ') || text.endsWith(' ' + human)) matches.add(sym);
+    }
+    return [...matches];
+}
+
+function initSymptomVoice() {
+    const btn = document.getElementById('btn-sym-mic');
+    const transcriptEl = document.getElementById('sym-transcript');
+    if (!btn || !transcriptEl) return;
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    btn.hidden = false;
+
+    const recognition = new SR();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    let active = false;
+    const setActive = (on) => {
+        active = on;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.querySelector('.mic-label').textContent = on ? 'Listening… tap to stop' : 'Speak your symptoms';
+    };
+    const showTranscript = (text) => {
+        transcriptEl.textContent = text ? `Heard: "${text}"` : '';
+        transcriptEl.classList.toggle('has-text', !!text);
+    };
+
+    recognition.onresult = (e) => {
+        let text = '';
+        for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+        showTranscript(text.trim());
+    };
+
+    recognition.onend = () => {
+        setActive(false);
+        const raw = transcriptEl.textContent.replace(/^Heard:\s*"?/, '').replace(/"?$/, '');
+        if (!raw) return;
+        const matches = matchSymptomsFromTranscript(raw);
+        if (matches.length === 0) {
+            if (typeof showAlert === 'function') showAlert('No matching symptoms recognized. Try saying each symptom clearly.', 'warning');
+            return;
+        }
+        document.querySelectorAll('.symptom-tag').forEach(tag => {
+            if (matches.includes(tag.dataset.symptom)) tag.classList.add('selected');
+        });
+        if (typeof showAlert === 'function') showAlert(`Added ${matches.length} symptom${matches.length > 1 ? 's' : ''} from voice.`, 'success');
+    };
+
+    recognition.onerror = (e) => {
+        setActive(false);
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+            if (typeof showAlert === 'function') showAlert('Microphone permission denied.', 'danger');
+        } else if (e.error === 'no-speech') {
+            if (typeof showAlert === 'function') showAlert("Didn't hear anything — try again.", 'warning');
+        }
+    };
+
+    btn.addEventListener('click', () => {
+        if (active) recognition.stop();
+        else {
+            showTranscript('');
+            try { recognition.start(); setActive(true); } catch { /* already started */ }
+        }
+    });
+}
+
 function initSymptomTags() {
     const container = document.getElementById('symptom-tags');
     container.innerHTML = SYMPTOMS.map(s =>
@@ -1101,6 +1240,7 @@ function hideInstallBanner() {
 // --- Init ---
 window.addEventListener('DOMContentLoaded', () => {
     initSymptomTags();
+    initSymptomVoice();
     const savedUrl = getApiUrl();
     if (savedUrl) {
         document.getElementById('setting-api-url').value = savedUrl;
