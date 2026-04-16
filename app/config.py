@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # AI analysis (Claude API)
     anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-6"
     ai_analysis_enabled: bool = False
 
     # Email notifications

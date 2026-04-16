@@ -1,6 +1,7 @@
 import logging
 
 import anthropic
+from anthropic.types import TextBlock
 
 from app.config import settings
 
@@ -48,13 +49,16 @@ def analyze_symptoms_with_ai(
         )
 
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.anthropic_model,
             max_tokens=512,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )
 
-        return message.content[0].text
+        for block in message.content:
+            if isinstance(block, TextBlock):
+                return block.text
+        return "AI analysis unavailable."
 
     except Exception:
         logger.exception("AI symptom analysis failed")

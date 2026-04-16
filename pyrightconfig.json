@@ -1,5 +1,7 @@
 {
   "include": ["app"],
+  "venvPath": ".",
+  "venv": "venv",
   "typeCheckingMode": "basic",
   "reportUndefinedVariable": "warning",
   "reportAttributeAccessIssue": "warning",

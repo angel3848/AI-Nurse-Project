@@ -24,7 +24,9 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    # Alembic owns production schema; auto-create is dev-only convenience.
+    if settings.app_env != "production":
+        Base.metadata.create_all(bind=engine)
     yield
 
 
