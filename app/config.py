@@ -52,3 +52,8 @@ if settings.app_env == "production" and not settings.jwt_secret_key:
 # In development, auto-generate a random secret if none provided
 if not settings.jwt_secret_key:
     settings.jwt_secret_key = secrets.token_urlsafe(32)
+
+# Safety net: strip localhost origins in production so a missing
+# ALLOWED_ORIGINS env var can't accidentally leave them allowed.
+if settings.app_env == "production":
+    settings.allowed_origins = [o for o in settings.allowed_origins if "localhost" not in o and "127.0.0.1" not in o]

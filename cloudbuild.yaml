@@ -48,6 +48,11 @@ steps:
       - '1'
       - '--timeout'
       - '300'
+      # HTTP startup probe so Cloud Run waits for the app to actually
+      # respond on /health before routing traffic (Dockerfile HEALTHCHECK
+      # is ignored by Cloud Run).
+      - '--startup-probe'
+      - 'httpGet.path=/health,initialDelaySeconds=0,periodSeconds=3,timeoutSeconds=2,failureThreshold=10'
 
 substitutions:
   _REGION: us-central1
