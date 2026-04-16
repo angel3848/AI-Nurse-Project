@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     redis_url: str = "redis://localhost:6379/0"
+    enable_realtime_events: bool = False
     cookie_secure: bool = False  # Set True in production (requires HTTPS)
     cookie_domain: str | None = None
 

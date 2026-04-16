@@ -6,6 +6,7 @@ from app.database import get_standalone_session
 from app.models.medication import MedicationReminderModel
 from app.models.patient import Patient
 from app.models.user import User
+from app.services.event_bus import publish_user_event
 from app.services.notifier import build_reminder_email, send_email
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,9 @@ def send_reminder_notification(
             "body": f"Take {dosage} of {medication_name}. {instructions}".strip(),
             "delivered": delivered,
         }
+
+        if user is not None:
+            publish_user_event(user.id, notification)
         logger.info(
             "Medication reminder %s: %s %s for patient %s (email=%s, delivered=%s)",
             reminder_id,

@@ -60,3 +60,17 @@ class VitalsHistoryResponse(BaseModel):
     patient_id: str
     records: list[VitalsRecordResponse]
     total: int
+
+
+class VitalsTrendPoint(BaseModel):
+    recorded_at: datetime
+    value: float | int
+
+
+class VitalsTrendResponse(BaseModel):
+    patient_id: str
+    vital: str
+    unit: str
+    days: int
+    points: list[VitalsTrendPoint]
+    count: int

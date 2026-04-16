@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,8 @@ from app.schemas.metrics import (
     VitalsHistoryResponse,
     VitalsRecordRequest,
     VitalsRecordResponse,
+    VitalsTrendPoint,
+    VitalsTrendResponse,
 )
 from app.services.audit_logger import log_action
 from app.services.bmi_calculator import assess_bmi
@@ -156,3 +160,52 @@ def get_vitals_history(
     )
 
     return VitalsHistoryResponse(patient_id=patient_id, records=responses, total=total)
+
+
+_VITAL_COLUMNS = {
+    "heart_rate": (VitalsRecord.heart_rate, "bpm"),
+    "bp_systolic": (VitalsRecord.bp_systolic, "mmHg"),
+    "bp_diastolic": (VitalsRecord.bp_diastolic, "mmHg"),
+    "temperature_c": (VitalsRecord.temperature_c, "°C"),
+    "respiratory_rate": (VitalsRecord.respiratory_rate, "breaths/min"),
+    "oxygen_saturation": (VitalsRecord.oxygen_saturation, "%"),
+    "blood_glucose_mg_dl": (VitalsRecord.blood_glucose_mg_dl, "mg/dL"),
+}
+
+
+@router.get("/vitals/{patient_id}/trend", response_model=VitalsTrendResponse)
+def get_vitals_trend(
+    patient_id: str,
+    vital: str = Query(..., description="Vital to trend"),
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> VitalsTrendResponse:
+    """Return time-series for a single vital over a given window (days)."""
+    if vital not in _VITAL_COLUMNS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown vital '{vital}'. Valid: {', '.join(_VITAL_COLUMNS)}",
+        )
+
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if patient is None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    if current_user.role == "patient" and patient.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    column, unit = _VITAL_COLUMNS[vital]
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    rows = (
+        db.query(VitalsRecord.recorded_at, column)
+        .filter(VitalsRecord.patient_id == patient_id, VitalsRecord.recorded_at >= cutoff)
+        .order_by(VitalsRecord.recorded_at.asc())
+        .all()
+    )
+    points = [VitalsTrendPoint(recorded_at=ts, value=val) for ts, val in rows if val is not None]
+
+    return VitalsTrendResponse(
+        patient_id=patient_id, vital=vital, unit=unit, days=days, points=points, count=len(points)
+    )

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from app.routers import audit as audit_router
 from app.routers import auth, medications, metrics, patients, symptoms
 from app.routers import triage as triage_router
 from app.routers import ws as ws_router
+from app.routers.ws import user_manager
+from app.services.event_bus import listen_user_events
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 limiter = Limiter(key_func=get_remote_address)
@@ -27,7 +30,20 @@ async def lifespan(app: FastAPI):
     # Alembic owns production schema; auto-create is dev-only convenience.
     if settings.app_env != "production":
         Base.metadata.create_all(bind=engine)
-    yield
+
+    listener_task: asyncio.Task | None = None
+    if settings.enable_realtime_events:
+        listener_task = asyncio.create_task(listen_user_events(user_manager.send_to_user))
+
+    try:
+        yield
+    finally:
+        if listener_task is not None:
+            listener_task.cancel()
+            try:
+                await listener_task
+            except (asyncio.CancelledError, Exception):
+                pass
 
 
 app = FastAPI(
@@ -72,3 +88,10 @@ def serve_frontend() -> HTMLResponse:
 def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy", "version": settings.app_version}
+
+
+@app.get("/audit", response_class=HTMLResponse)
+def serve_audit_viewer() -> HTMLResponse:
+    """Serve the audit log viewer UI. Data access still gated by admin role."""
+    html_path = BASE_DIR / "templates" / "audit.html"
+    return HTMLResponse(content=html_path.read_text())
