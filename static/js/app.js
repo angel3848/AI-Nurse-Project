@@ -962,12 +962,103 @@ async function viewPatient(id) {
             </div>
             <button class="btn btn-primary btn-small" style="margin-top:16px" id="btn-view-history" data-patient-id="${escapeHtml(p.id)}">View History</button>
             <div id="patient-history-section" class="history-section"></div>
+
+            <div class="trend-section">
+                <div class="section-title">Vitals Trend</div>
+                <div class="trend-controls">
+                    <select id="trend-vital" aria-label="Vital to chart">
+                        <option value="heart_rate">Heart rate (bpm)</option>
+                        <option value="bp_systolic">BP systolic (mmHg)</option>
+                        <option value="bp_diastolic">BP diastolic (mmHg)</option>
+                        <option value="temperature_c">Temperature (°C)</option>
+                        <option value="respiratory_rate">Respiratory rate</option>
+                        <option value="oxygen_saturation">Oxygen saturation (%)</option>
+                        <option value="blood_glucose_mg_dl">Blood glucose (mg/dL)</option>
+                    </select>
+                    <select id="trend-days" aria-label="Time range (days)">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="365">Last year</option>
+                    </select>
+                </div>
+                <div id="trend-render-slot" class="trend-canvas-wrap">
+                    <canvas id="trend-chart"></canvas>
+                </div>
+            </div>
         `;
         container.innerHTML = html;
         $('#btn-view-history').addEventListener('click', () => loadPatientHistory(p.id));
+
+        initVitalsTrend(p.id);
     } catch (err) {
         container.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.detail || 'Failed to load patient')}</div>`;
     }
+}
+
+// --- Vitals trend chart ---
+let trendChart = null;
+
+function initVitalsTrend(patientId) {
+    const vitalEl = document.getElementById('trend-vital');
+    const daysEl = document.getElementById('trend-days');
+    if (!vitalEl || !daysEl) return;
+    const reload = () => loadVitalsTrend(patientId, vitalEl.value, parseInt(daysEl.value, 10));
+    vitalEl.addEventListener('change', reload);
+    daysEl.addEventListener('change', reload);
+    reload();
+}
+
+async function loadVitalsTrend(patientId, vital, days) {
+    const slot = document.getElementById('trend-render-slot');
+    if (!slot) return;
+    try {
+        const data = await api(`/metrics/vitals/${encodeURIComponent(patientId)}/trend?vital=${encodeURIComponent(vital)}&days=${days}`);
+        renderVitalsTrend(slot, data);
+    } catch (err) {
+        slot.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.detail || 'Failed to load trend')}</div>`;
+    }
+}
+
+function renderVitalsTrend(slot, data) {
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+
+    if (!data.count) {
+        slot.innerHTML = `<div class="trend-empty">No ${data.vital.replace(/_/g, ' ')} recorded in the last ${data.days} days.</div>`;
+        return;
+    }
+    slot.innerHTML = '<canvas id="trend-chart"></canvas>';
+
+    if (typeof Chart === 'undefined') {
+        slot.innerHTML = '<div class="trend-empty">Chart library failed to load.</div>';
+        return;
+    }
+
+    const ctx = document.getElementById('trend-chart').getContext('2d');
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.points.map(p => new Date(p.recorded_at).toLocaleDateString()),
+            datasets: [{
+                label: `${data.vital.replace(/_/g, ' ')} (${data.unit})`,
+                data: data.points.map(p => p.value),
+                borderColor: '#0066cc',
+                backgroundColor: 'rgba(0, 102, 204, 0.1)',
+                tension: 0.2,
+                fill: true,
+                pointRadius: 3,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: 'top' } },
+            scales: {
+                y: { beginAtZero: false, title: { display: true, text: data.unit } },
+                x: { ticks: { maxTicksLimit: 8 } },
+            },
+        },
+    });
 }
 
 async function loadPatientHistory(patientId) {

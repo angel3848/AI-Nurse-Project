@@ -310,6 +310,33 @@ body {
     border-color: var(--primary);
 }
 
+/* Vitals trend chart */
+.trend-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-100); }
+.trend-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.trend-controls select {
+    padding: 6px 10px;
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+}
+.trend-canvas-wrap {
+    position: relative;
+    height: 220px;
+    background: white;
+    border: 1px solid var(--gray-100);
+    border-radius: 6px;
+    padding: 8px;
+}
+.trend-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--gray-500);
+    font-style: italic;
+    background: var(--gray-100);
+    border-radius: 6px;
+}
+
 /* Voice input */
 .voice-input { margin-bottom: 10px; }
 .btn-mic {
