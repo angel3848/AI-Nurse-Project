@@ -35,3 +35,4 @@ class Patient(Base):
     )
     vitals_records: Mapped[list["VitalsRecord"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
     encounters: Mapped[list["Encounter"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
+    allergy_records: Mapped[list["Allergy"]] = relationship(back_populates="patient", cascade="all, delete-orphan")

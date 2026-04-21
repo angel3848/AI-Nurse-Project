@@ -15,6 +15,7 @@ from app.middleware.correlation import CorrelationIDMiddleware
 from app.database import Base, engine
 # Register all models with SQLAlchemy metadata (import-side-effect only)
 from app.models import (  # noqa: F401
+    allergy,
     audit,
     blacklisted_token,
     encounter,
@@ -26,7 +27,7 @@ from app.models import (  # noqa: F401
     vitals,
 )
 from app.routers import audit as audit_router
-from app.routers import auth, encounters, medications, metrics, patients, symptoms
+from app.routers import allergies, auth, encounters, medications, metrics, patients, symptoms
 from app.routers import triage as triage_router
 from app.routers import ws as ws_router
 from app.routers.ws import user_manager
@@ -85,6 +86,7 @@ app.include_router(symptoms.router)
 app.include_router(medications.router)
 app.include_router(patients.router)
 app.include_router(encounters.router)
+app.include_router(allergies.router)
 app.include_router(audit_router.router)
 app.include_router(ws_router.router)
 
