@@ -29,6 +29,7 @@ class BMIResponse(BaseModel):
 
 class VitalsRecordRequest(BaseModel):
     patient_id: str = Field(..., min_length=1)
+    encounter_id: str | None = Field(None, description="Optional encounter to attach this vitals record to")
     heart_rate: int = Field(..., gt=0, le=300)
     blood_pressure_systolic: int = Field(..., gt=0, le=350)
     blood_pressure_diastolic: int = Field(..., gt=0, le=250)

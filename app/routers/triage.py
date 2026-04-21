@@ -16,6 +16,7 @@ from app.schemas.triage import (
     TriageRequest,
     TriageResponse,
 )
+from app.services import encounter_service
 from app.services.triage_engine import perform_triage
 from app.utils.auth import get_current_user, require_role
 
@@ -43,8 +44,16 @@ def create_triage(
     result = perform_triage(request)
 
     if request.patient_id:
+        encounter = encounter_service.get_or_open_encounter_for_triage(
+            db,
+            patient_id=request.patient_id,
+            encounter_id=request.encounter_id,
+            chief_complaint=request.chief_complaint,
+            user=current_user,
+        )
         record = TriageRecord(
             patient_id=request.patient_id,
+            encounter_id=encounter.id,
             chief_complaint=request.chief_complaint,
             symptoms=request.symptoms,
             symptom_duration=request.symptom_duration,

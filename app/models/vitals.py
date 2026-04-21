@@ -13,6 +13,7 @@ class VitalsRecord(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("patients.id"), nullable=False, index=True)
+    encounter_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("encounters.id"), nullable=True, index=True)
     recorded_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     heart_rate: Mapped[int] = mapped_column(Integer, nullable=False)
     bp_systolic: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -26,3 +27,4 @@ class VitalsRecord(Base):
     recorded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     patient: Mapped["Patient"] = relationship(back_populates="vitals_records")
+    encounter: Mapped["Encounter | None"] = relationship(back_populates="vitals_records")

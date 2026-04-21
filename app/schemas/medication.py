@@ -2,6 +2,8 @@ from datetime import date, time
 
 from pydantic import BaseModel, Field
 
+from app.schemas.allergy import AllergyAlert
+
 
 class MedicationReminderCreate(BaseModel):
     patient_id: str = Field(..., min_length=1)
@@ -25,6 +27,7 @@ class MedicationReminderResponse(BaseModel):
     end_date: date
     instructions: str
     status: str
+    allergy_alerts: list[AllergyAlert] = []
 
     model_config = {"from_attributes": True}
 

@@ -5,6 +5,8 @@ A digital nurse assistant that provides patient triage, symptom checking, BMI/he
 ## Features
 
 - **Patient Triage** -- Assess symptoms and vitals to assign 5-level priority (Resuscitation through Non-Urgent) using clinical decision rules
+- **Encounters** -- Group triage, vitals, and symptom checks under a single patient visit; lifecycle from open to closed with clinical disposition (discharged home, admitted, transferred, referred, AMA, LWBS)
+- **Allergy Tracking & Drug Contraindication Warnings** -- Record allergies with severity, criticality, and reaction; medication creation surfaces `allergy_alerts` when the drug name matches any active allergy (warn, don't block; severe matches audit-logged)
 - **Symptom Checker** -- Match reported symptoms against 100+ conditions across 12 medical categories with urgency assessment
 - **AI-Powered Analysis** -- Optional Claude API integration for enhanced symptom analysis alongside rule-based results
 - **BMI & Health Metrics** -- Calculate BMI (metric and imperial), record and track patient vitals with real-time assessments
@@ -31,7 +33,7 @@ A digital nurse assistant that provides patient triage, symptom checking, BMI/he
 | AI Analysis | Anthropic Claude API (optional) |
 | Real-Time | WebSocket (triage queue broadcasts) |
 | Security | bcrypt, rate limiting, CORS, CSRF protection, account lockout, JWT blacklist, TLS (nginx) |
-| Testing | pytest (257 tests, 98% coverage) |
+| Testing | pytest (337 tests, 91%+ coverage) |
 | CI/CD | GitHub Actions (lint + format + bandit security scan + tests) |
 | Linting | ruff |
 | Frontend | Jinja2 templates, service worker (PWA) |
@@ -87,7 +89,9 @@ AI_Nurse_Project/
 │   │   └── correlation.py       # X-Correlation-ID middleware
 │   ├── models/                  # SQLAlchemy ORM models
 │   │   ├── user.py              # User accounts, roles, lockout, reset tokens
-│   │   ├── patient.py           # Patient demographics (linked to User via FK, soft delete, JSON allergies)
+│   │   ├── patient.py           # Patient demographics (linked to User via FK, soft delete)
+│   │   ├── encounter.py         # Encounter (visit) — groups triage/vitals/symptoms with disposition
+│   │   ├── allergy.py           # AllergyIntolerance (substance, severity, criticality, reaction, status)
 │   │   ├── medication.py        # Medication reminders
 │   │   ├── triage.py            # Triage + symptom check records
 │   │   ├── vitals.py            # Vitals records (with stored assessments)
@@ -96,10 +100,12 @@ AI_Nurse_Project/
 │   ├── routers/                 # API route handlers
 │   │   ├── auth.py              # Register, login, logout, forgot/reset password, user management
 │   │   ├── patients.py          # CRUD + search + self-registration + history
+│   │   ├── encounters.py        # Open/close visits + disposition + nested record detail
+│   │   ├── allergies.py         # Allergy CRUD (soft-delete to inactive)
 │   │   ├── triage.py            # Triage submission + queue + WebSocket notification
 │   │   ├── symptoms.py          # Symptom checker + optional AI analysis
 │   │   ├── metrics.py           # BMI (metric + imperial) + vitals
-│   │   ├── medications.py       # Medication reminders (CRUD)
+│   │   ├── medications.py       # Medication reminders (CRUD) with allergy contraindication warnings
 │   │   ├── ws.py                # WebSocket endpoint for triage queue
 │   │   └── audit.py             # Audit log access
 │   ├── services/                # Business logic layer
@@ -108,6 +114,8 @@ AI_Nurse_Project/
 │   │   ├── ai_analyzer.py       # Claude API integration for symptom analysis
 │   │   ├── bmi_calculator.py    # BMI calculation (metric + imperial)
 │   │   ├── vitals_assessor.py   # Vital sign assessment ranges
+│   │   ├── encounter_service.py # Open/close encounters, auto-complete triage on close
+│   │   ├── allergy_service.py   # Allergy CRUD + medication contraindication matching
 │   │   ├── medication_scheduler.py
 │   │   ├── patient_service.py   # Patient history aggregation
 │   │   ├── notifier.py          # Email notification builder
@@ -117,7 +125,7 @@ AI_Nurse_Project/
 │   └── utils/
 │       ├── auth.py              # JWT, password hashing, RBAC, token blacklist
 │       └── validators.py
-├── tests/                       # 257 tests (pytest, in-memory SQLite)
+├── tests/                       # 337 tests (pytest, in-memory SQLite)
 ├── alembic/                     # Database migrations
 ├── templates/                   # Jinja2 HTML templates
 ├── static/                      # CSS, JS, images, service worker
@@ -166,10 +174,29 @@ All endpoints are prefixed with `/api/v1`. Protected endpoints require a JWT tok
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/triage` | Yes | Submit triage assessment |
+| POST | `/triage` | Yes | Submit triage assessment; auto-opens an encounter if `encounter_id` is omitted |
 | GET | `/triage/queue` | Nurse/Doctor/Admin | View triage queue by priority |
 | PUT | `/triage/{id}/status` | Nurse/Doctor/Admin | Update triage status |
-| WS | `/ws/triage-queue` | Optional token | Real-time triage queue updates |
+| WS | `/ws/triage-queue` | Optional token | Real-time triage queue updates; emits `queue_updated`, `encounter_opened`, `encounter_closed` |
+
+### Encounters
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/encounters` | Nurse/Doctor/Admin | Open a new encounter for a patient |
+| GET | `/encounters` | Yes | List encounters (filters: `patient_id`, `status`, date range); patients see own |
+| GET | `/encounters/{id}` | Owner or Staff | Encounter detail with nested triage/vitals/symptom records |
+| PATCH | `/encounters/{id}` | Nurse/Doctor/Admin | Update status or reason_code |
+| PATCH | `/encounters/{id}/close` | Doctor/Admin | Close with disposition; auto-completes open triage records |
+
+### Allergies
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/allergies` | Nurse/Doctor/Admin | Record a new allergy for a patient |
+| GET | `/allergies?patient_id=...` | Owner or Staff | List active allergies (optional `include_inactive`) |
+| PATCH | `/allergies/{id}` | Nurse/Doctor/Admin | Update allergy fields (substance, severity, reaction, status, etc.) |
+| DELETE | `/allergies/{id}` | Nurse/Doctor/Admin | Soft-delete (sets `status=inactive`) |
 
 ### Symptoms
 
@@ -190,7 +217,7 @@ All endpoints are prefixed with `/api/v1`. Protected endpoints require a JWT tok
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/medications/reminders` | Nurse/Doctor | Create medication reminder |
+| POST | `/medications/reminders` | Nurse/Doctor | Create medication reminder; response includes `allergy_alerts[]` when drug name matches any active allergy (warn, don't block) |
 | GET | `/medications/reminders/{id}` | Yes | Get a specific reminder |
 | PUT | `/medications/reminders/{id}` | Nurse/Doctor | Update medication reminder |
 | GET | `/medications/patient/{patient_id}` | Yes | List patient medications |

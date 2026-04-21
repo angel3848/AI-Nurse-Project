@@ -354,12 +354,13 @@ Get patient visit history (triage assessments, symptom checks, vitals). **Requir
 ### POST `/triage`
 Submit a triage assessment and receive a priority classification. **Requires:** authentication.
 
-When a `patient_id` is provided, the record is persisted and a WebSocket notification is broadcast to all connected clients.
+When a `patient_id` is provided, the record is persisted, an encounter is attached (auto-opened if `encounter_id` is omitted), and a WebSocket notification is broadcast to all connected clients.
 
 **Request Body:**
 ```json
 {
   "patient_id": "uuid (optional -- omit for anonymous triage)",
+  "encounter_id": "uuid (optional -- if omitted and patient_id is given, a new emergency encounter is auto-opened)",
   "patient_name": "John Doe",
   "chief_complaint": "Severe chest pain radiating to left arm",
   "symptoms": ["chest_pain", "shortness_of_breath", "sweating"],
@@ -377,6 +378,8 @@ When a `patient_id` is provided, the record is persisted and a WebSocket notific
   "notes": "Patient appears distressed"
 }
 ```
+
+> **Encounter auto-open behavior:** If `encounter_id` is omitted and `patient_id` is provided, a new `emergency` encounter is opened with `reason_code` set to the `chief_complaint`. If `encounter_id` is provided, the encounter must be open (status `planned` or `in-progress`) and belong to the same patient, or the request is rejected (409 if closed, 400 if patient mismatch).
 
 **Response (200):**
 ```json
@@ -432,18 +435,226 @@ Update a triage record's status. Broadcasts a WebSocket notification on change. 
 - `status` (string, required) -- New status: `waiting`, `in_progress`, `completed`
 
 ### WebSocket `/ws/triage-queue`
-Real-time triage queue updates. Connects via WebSocket and receives JSON messages whenever the queue changes (new triage submitted or status updated).
+Real-time triage queue updates. Connects via WebSocket and receives JSON messages whenever the queue changes (new triage submitted or status updated) or an encounter is opened/closed.
 
 **Connection:** `ws://localhost:8000/ws/triage-queue?token=optional-jwt`
 
-**Message format (server to client):**
+**Message formats (server to client):**
+```json
+{ "event": "queue_updated" }
+
+{ "event": "encounter_opened", "encounter_id": "uuid" }
+
+{ "event": "encounter_closed", "encounter_id": "uuid" }
+```
+
+Clients should re-fetch the queue via `GET /triage/queue` when they receive `queue_updated`. Every encounter-specific event is emitted alongside a generic `queue_updated` for older clients. The optional `token` query parameter can be used for authentication verification.
+
+---
+
+## Encounters
+
+An `Encounter` represents a single patient visit and groups triage, vitals, and symptom-check records under one logical event. Encounters have a status lifecycle (`planned`, `in-progress`, `completed`, `cancelled`) and, when closed, record a clinical disposition.
+
+### POST `/encounters`
+Open a new encounter for a patient. **Requires:** nurse, doctor, or admin role.
+
+**Request Body:**
 ```json
 {
-  "event": "queue_updated"
+  "patient_id": "uuid",
+  "encounter_class": "emergency",
+  "reason_code": "Chest pain"
 }
 ```
 
-Clients should re-fetch the queue via `GET /triage/queue` when they receive this event. The optional `token` query parameter can be used for authentication verification.
+> **encounter_class values:** `emergency`, `outpatient`, `inpatient`, `virtual` (default `emergency`)
+
+**Response (201):**
+```json
+{
+  "id": "uuid",
+  "patient_id": "uuid",
+  "status": "in-progress",
+  "encounter_class": "emergency",
+  "reason_code": "Chest pain",
+  "period_start": "2026-04-21T10:00:00",
+  "period_end": null,
+  "disposition": null,
+  "disposition_notes": "",
+  "opened_by": "uuid",
+  "closed_by": null,
+  "created_at": "2026-04-21T10:00:00",
+  "updated_at": "2026-04-21T10:00:00"
+}
+```
+
+### GET `/encounters`
+List encounters with filters and pagination. **Requires:** authentication. Patients may only list their own encounters (the `patient_id` query parameter is forced to their record).
+
+**Query Parameters:**
+- `patient_id` (uuid, optional) -- Filter by patient
+- `status` (string, optional) -- Filter: `planned`, `in-progress`, `completed`, `cancelled`
+- `start_after` (ISO datetime, optional) -- Encounters where `period_start >= this`
+- `start_before` (ISO datetime, optional) -- Encounters where `period_start <= this`
+- `limit` (int, default 20) -- Page size (1-100)
+- `offset` (int, default 0) -- Pagination offset
+
+**Response (200):**
+```json
+{
+  "encounters": [ { "...": "..." } ],
+  "total": 42
+}
+```
+
+### GET `/encounters/{encounter_id}`
+Get full encounter detail with nested triage, vitals, and symptom records. **Requires:** authentication. Patients may only view encounters linked to their record.
+
+**Response (200):**
+```json
+{
+  "id": "uuid",
+  "patient_id": "uuid",
+  "status": "in-progress",
+  "encounter_class": "emergency",
+  "reason_code": "Chest pain",
+  "period_start": "2026-04-21T10:00:00",
+  "period_end": null,
+  "disposition": null,
+  "disposition_notes": "",
+  "opened_by": "uuid",
+  "closed_by": null,
+  "triage_records": [
+    {
+      "id": "uuid",
+      "chief_complaint": "Chest pain",
+      "priority_level": 2,
+      "priority_label": "Emergency",
+      "status": "in_progress",
+      "created_at": "2026-04-21T10:02:00"
+    }
+  ],
+  "vitals_records": [ { "id": "uuid", "heart_rate": 110, "bp_systolic": 160, "...": "..." } ],
+  "symptom_checks": [],
+  "created_at": "2026-04-21T10:00:00",
+  "updated_at": "2026-04-21T10:02:00"
+}
+```
+
+### PATCH `/encounters/{encounter_id}`
+Update encounter `status` or `reason_code`. **Requires:** nurse, doctor, or admin role.
+
+**Request Body (all fields optional):**
+```json
+{
+  "status": "in-progress",
+  "reason_code": "Updated reason"
+}
+```
+
+### PATCH `/encounters/{encounter_id}/close`
+Close an encounter with a clinical disposition. Sets `status = "completed"`, `period_end = now()`, and auto-completes any linked triage records still in `waiting` or `in_progress`. **Requires:** doctor or admin role -- nurses cannot discharge.
+
+**Request Body:**
+```json
+{
+  "disposition": "discharged_home",
+  "disposition_notes": "Follow up with PCP in 3 days"
+}
+```
+
+> **disposition values:** `discharged_home`, `admitted`, `transferred`, `referred`, `ama` (against medical advice), `lwbs` (left without being seen)
+
+**Response (200):** Full encounter object with `status = "completed"`, `disposition`, and `period_end` set.
+
+**Error (409) -- already closed:**
+```json
+{ "detail": "Encounter already completed" }
+```
+
+---
+
+## Allergies
+
+The `Allergy` resource models `AllergyIntolerance` -- a patient-scoped record with severity, criticality, and reaction details. Creating a medication reminder automatically checks for substance matches against active allergies and surfaces warnings (see Medications).
+
+### POST `/allergies`
+Record a new allergy for a patient. **Requires:** nurse, doctor, or admin role.
+
+**Request Body:**
+```json
+{
+  "patient_id": "uuid",
+  "substance": "Penicillin",
+  "category": "medication",
+  "criticality": "high",
+  "severity": "severe",
+  "reaction": "anaphylaxis",
+  "onset": "2020-05-01",
+  "notes": "Confirmed via skin test"
+}
+```
+
+> **category values:** `medication`, `food`, `environment`, `biologic` (default `medication`)
+> **criticality values:** `low`, `high`, `unable-to-assess` (default `unable-to-assess`)
+> **severity values:** `mild`, `moderate`, `severe` (default `moderate`)
+
+**Response (201):**
+```json
+{
+  "id": "uuid",
+  "patient_id": "uuid",
+  "substance": "Penicillin",
+  "category": "medication",
+  "criticality": "high",
+  "severity": "severe",
+  "reaction": "anaphylaxis",
+  "onset": "2020-05-01",
+  "status": "active",
+  "notes": "Confirmed via skin test",
+  "recorded_by": "uuid",
+  "created_at": "2026-04-21T10:00:00",
+  "updated_at": "2026-04-21T10:00:00"
+}
+```
+
+### GET `/allergies`
+List allergies for a patient. **Requires:** authentication. Patients may only list their own.
+
+**Query Parameters:**
+- `patient_id` (uuid, required)
+- `include_inactive` (bool, default `false`) -- Include allergies with `status != "active"`
+- `limit` (int, default 50) -- Page size (1-200)
+- `offset` (int, default 0) -- Pagination offset
+
+**Response (200):**
+```json
+{
+  "allergies": [ { "...": "..." } ],
+  "total": 3
+}
+```
+
+### PATCH `/allergies/{allergy_id}`
+Update an allergy record (partial update -- only provided fields change). **Requires:** nurse, doctor, or admin role.
+
+**Request Body (all fields optional):**
+```json
+{
+  "severity": "mild",
+  "reaction": "mild rash only",
+  "status": "resolved",
+  "notes": "Updated after re-evaluation"
+}
+```
+
+> **status values:** `active`, `inactive`, `resolved`, `entered-in-error`
+
+### DELETE `/allergies/{allergy_id}`
+Soft-delete an allergy by setting `status = "inactive"`. The record is preserved but excluded from contraindication checks and default listings. **Requires:** nurse, doctor, or admin role.
+
+**Response (200):** Full allergy object with `status = "inactive"`.
 
 ---
 
@@ -456,6 +667,7 @@ Analyze reported symptoms against 100+ conditions and suggest possible matches. 
 ```json
 {
   "patient_id": "uuid (optional -- omit for anonymous check)",
+  "encounter_id": "uuid (optional -- attaches the record to an open encounter; not auto-opened)",
   "symptoms": ["headache", "fever", "body_aches", "fatigue"],
   "duration_days": 3,
   "severity": "moderate",
@@ -463,6 +675,8 @@ Analyze reported symptoms against 100+ conditions and suggest possible matches. 
   "additional_info": ""
 }
 ```
+
+> **Encounter attachment:** Unlike `/triage`, symptom checks do NOT auto-open an encounter -- this endpoint is designed for patient self-checks from home as well as clinical use. When `encounter_id` is provided, it must be open and belong to the same patient, or the request is rejected.
 
 > **Severity values:** `mild`, `moderate`, `severe`
 
@@ -579,6 +793,7 @@ Record patient vital signs with real-time assessment. Assessments are stored imm
 ```json
 {
   "patient_id": "uuid",
+  "encounter_id": "uuid (optional -- attaches the reading to an open encounter; not auto-opened)",
   "heart_rate": 72,
   "blood_pressure_systolic": 120,
   "blood_pressure_diastolic": 80,
@@ -589,6 +804,8 @@ Record patient vital signs with real-time assessment. Assessments are stored imm
   "notes": ""
 }
 ```
+
+> **Encounter attachment:** Vitals do NOT auto-open an encounter (nurses are typically already mid-encounter when recording). If `encounter_id` is provided, it must be open and belong to the same patient, or the request is rejected.
 
 **Response (201):**
 ```json
@@ -624,11 +841,13 @@ Get vitals history for a patient. Returns stored assessments (not recomputed). *
 ### POST `/medications/reminders`
 Create a medication reminder. **Requires:** nurse or doctor role.
 
+On creation, the service runs a case-insensitive substring match between `medication_name` and every active allergy for the patient. Matching allergies are returned in the response as `allergy_alerts`. The reminder is **not blocked** when a match is found -- the alert is informational. Severe or high-criticality matches are audit-logged.
+
 **Request Body:**
 ```json
 {
   "patient_id": "uuid",
-  "medication_name": "Metformin",
+  "medication_name": "Penicillin 500mg",
   "dosage": "500mg",
   "frequency": "twice_daily",
   "times": ["08:00", "20:00"],
@@ -645,16 +864,27 @@ Create a medication reminder. **Requires:** nurse or doctor role.
 {
   "id": "uuid",
   "patient_id": "uuid",
-  "medication_name": "Metformin",
+  "medication_name": "Penicillin 500mg",
   "dosage": "500mg",
   "frequency": "twice_daily",
   "times": ["08:00:00", "20:00:00"],
   "start_date": "2026-03-31",
   "end_date": "2026-06-30",
   "instructions": "Take with food",
-  "status": "active"
+  "status": "active",
+  "allergy_alerts": [
+    {
+      "allergy_id": "uuid",
+      "substance": "Penicillin",
+      "severity": "severe",
+      "criticality": "high",
+      "reaction": "anaphylaxis"
+    }
+  ]
 }
 ```
+
+When no allergy matches, `allergy_alerts` is `[]`.
 
 ### GET `/medications/reminders/{reminder_id}`
 Get a specific medication reminder. **Requires:** authentication.

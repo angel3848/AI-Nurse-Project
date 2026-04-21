@@ -14,6 +14,7 @@ from app.schemas.symptom import (
     SymptomCheckRequest,
     SymptomCheckResponse,
 )
+from app.services import encounter_service
 from app.services.symptom_checker import CONDITION_DATABASE, check_symptoms
 
 logger = logging.getLogger(__name__)
@@ -51,8 +52,11 @@ def symptom_check(
             logger.exception("AI analysis failed, continuing without it")
 
     if request.patient_id:
+        if request.encounter_id:
+            encounter_service.assert_encounter_open(db, request.encounter_id, request.patient_id)
         record = SymptomCheckRecord(
             patient_id=request.patient_id,
+            encounter_id=request.encounter_id,
             symptoms=request.symptoms,
             duration_days=request.duration_days,
             severity=request.severity,

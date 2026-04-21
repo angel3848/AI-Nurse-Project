@@ -14,6 +14,7 @@ class Vitals(BaseModel):
 
 class TriageRequest(BaseModel):
     patient_id: str | None = Field(None, description="Optional patient ID to persist the triage record")
+    encounter_id: str | None = Field(None, description="Optional encounter to attach; auto-opened if omitted")
     patient_name: str = Field(..., min_length=1, max_length=200)
     chief_complaint: str = Field(..., min_length=1, max_length=1000)
     symptoms: list[str] = Field(..., min_length=1)

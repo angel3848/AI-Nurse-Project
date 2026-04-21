@@ -17,6 +17,7 @@ from app.schemas.metrics import (
     VitalsTrendPoint,
     VitalsTrendResponse,
 )
+from app.services import encounter_service
 from app.services.audit_logger import log_action
 from app.services.bmi_calculator import assess_bmi
 from app.services.vitals_assessor import assess_all_vitals
@@ -46,6 +47,9 @@ def record_vitals(
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
 
+    if body.encounter_id:
+        encounter_service.assert_encounter_open(db, body.encounter_id, body.patient_id)
+
     readings, alerts = assess_all_vitals(
         heart_rate=body.heart_rate,
         bp_systolic=body.blood_pressure_systolic,
@@ -63,6 +67,7 @@ def record_vitals(
 
     record = VitalsRecord(
         patient_id=body.patient_id,
+        encounter_id=body.encounter_id,
         recorded_by=current_user.id,
         heart_rate=body.heart_rate,
         bp_systolic=body.blood_pressure_systolic,
