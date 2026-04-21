@@ -243,7 +243,7 @@ GitHub Actions runs on every push and pull request to `main`:
 3. **Security scan** -- `bandit -r app/ -ll` (static analysis for common security issues)
 4. **Tests** -- `pytest tests/ -v --cov=app --cov-fail-under=90`
 
-All four steps must pass before merging. Current: 257 tests, 98% coverage.
+All four steps must pass before merging. Current: 337 tests, 91%+ coverage.
 
 Tests use an in-memory SQLite database (`sqlite:///:memory:` with `StaticPool`) for fast, isolated execution. No external services are needed to run the test suite.
 
