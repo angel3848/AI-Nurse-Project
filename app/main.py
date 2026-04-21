@@ -13,6 +13,7 @@ from slowapi.util import get_remote_address
 from app.config import settings
 from app.middleware.correlation import CorrelationIDMiddleware
 from app.database import Base, engine
+
 # Register all models with SQLAlchemy metadata (import-side-effect only)
 from app.models import (  # noqa: F401
     allergy,
